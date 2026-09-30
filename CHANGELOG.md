@@ -1,8 +1,16 @@
 # Changelog
 
-## Unreleased
+All notable changes to `d3creative/statamic-darkroom` are documented here.
 
-First version.
+This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
+(`composer.json` carries no `version` field).
+
+## [1.0.0] - 2026-09-30
+
+First release.
+
+### Added
 
 - Generate images from the Control Panel with Nano Banana Pro, Nano Banana 2 or Nano Banana 2 Lite, using your own Google API key.
 - Choose aspect ratio (Auto plus ten ratios), quality (0.5K, 1K, 2K, 4K), file type (JPEG or WebP) and a batch size of 1 to 4.
