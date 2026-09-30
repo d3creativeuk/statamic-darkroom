@@ -13,7 +13,8 @@ First release.
 ### Added
 
 - Generate images from the Control Panel with Nano Banana Pro, Nano Banana 2 or Nano Banana 2 Lite, using your own Google API key.
-- Choose aspect ratio (Auto plus ten ratios), quality (0.5K, 1K, 2K, 4K), file type (JPEG or WebP) and a batch size of 1 to 4.
+- Google's description of the chosen model is shown below the Model menu.
+- Choose aspect ratio (Auto plus ten ratios), quality (1K, 2K, 4K, plus 0.5K on Nano Banana 2), file type (JPEG or WebP, with PNG behind `DARKROOM_PNG`) and a batch size of 1 to 4.
 - Upscale any unsaved or saved image to a larger size, on any model, with the pixel size and price of each option shown.
 - Write alt text for an image with one click, using a Gemini text model on the same API key.
 - Filenames are slugified as they are typed or pasted.

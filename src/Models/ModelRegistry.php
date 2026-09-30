@@ -47,6 +47,11 @@ class ModelRegistry
         return $this->config['models'][$id]['label'] ?? $id;
     }
 
+    public function description(string $id): ?string
+    {
+        return $this->config['models'][$id]['description'] ?? null;
+    }
+
     /**
      * @return array<int, string>
      */
@@ -153,6 +158,7 @@ class ModelRegistry
         return array_map(fn (string $id) => [
             'id' => $id,
             'label' => $this->label($id),
+            'description' => $this->description($id),
             'qualities' => array_map(fn (string $quality) => [
                 'value' => $quality,
                 'label' => self::qualityLabel($quality),

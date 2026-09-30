@@ -35,7 +35,8 @@ const qualityOptions = computed(() =>
 
 <template>
     <div class="dr-controls">
-        <Field :label="__('Model')" class="dr-control dr-control--wide">
+        <!-- The description sits below the menu so every select in the row stays level. -->
+        <Field :label="__('Model')" :instructions="current?.description ?? ''" instructions-below class="dr-control dr-control--wide">
             <Select v-model="model" :options="modelOptions" :disabled="disabled" />
         </Field>
 

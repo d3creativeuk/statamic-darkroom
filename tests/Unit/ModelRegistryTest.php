@@ -37,13 +37,26 @@ class ModelRegistryTest extends TestCase
     }
 
     #[Test]
-    public function nano_banana_pro_is_the_default_and_offers_four_qualities()
+    public function nano_banana_pro_is_the_default_and_offers_three_qualities()
     {
         $registry = $this->registry();
 
         $this->assertSame('gemini-3-pro-image', $registry->defaultId());
-        $this->assertSame(['512', '1K', '2K', '4K'], $registry->qualities('gemini-3-pro-image'));
-        $this->assertSame(['512', '1K'], $registry->qualities('gemini-3.1-flash-lite-image'));
+        $this->assertSame(['1K', '2K', '4K'], $registry->qualities('gemini-3-pro-image'));
+        $this->assertSame(['512', '1K', '2K', '4K'], $registry->qualities('gemini-3.1-flash-image'));
+        $this->assertSame(['1K'], $registry->qualities('gemini-3.1-flash-lite-image'));
+    }
+
+    #[Test]
+    public function each_model_has_a_description()
+    {
+        $registry = $this->registry();
+
+        foreach ($registry->ids() as $id) {
+            $this->assertNotEmpty($registry->description($id));
+        }
+
+        $this->assertNull($registry->description('unknown'));
     }
 
     #[Test]
@@ -56,20 +69,21 @@ class ModelRegistryTest extends TestCase
         $this->assertNull(ModelRegistry::qualityLabel(null));
 
         // As Google returned them. Not quite half of 1K for every shape.
-        $this->assertSame([688, 384], $registry->dimensions('gemini-3-pro-image', '16:9', '512'));
-        $this->assertSame([512, 512], $registry->dimensions('gemini-3-pro-image', '1:1', '512'));
-        $this->assertSame([592, 448], $registry->dimensions('gemini-3-pro-image', '4:3', '512'));
-        $this->assertSame([784, 336], $registry->dimensions('gemini-3.1-flash-lite-image', '21:9', '512'));
+        $this->assertSame([688, 384], $registry->dimensions('gemini-3.1-flash-image', '16:9', '512'));
+        $this->assertSame([512, 512], $registry->dimensions('gemini-3.1-flash-image', '1:1', '512'));
+        $this->assertSame([592, 448], $registry->dimensions('gemini-3.1-flash-image', '4:3', '512'));
+        $this->assertSame([784, 336], $registry->dimensions('gemini-3.1-flash-image', '21:9', '512'));
     }
 
     #[Test]
-    public function only_nano_banana_2_is_cheaper_at_half_a_k()
+    public function half_a_k_is_only_offered_where_it_is_cheaper()
     {
         $registry = $this->registry();
 
-        // Measured from real responses: Pro and Lite bill 0.5K as a 1K image.
-        $this->assertSame($registry->price('gemini-3-pro-image', '1K'), $registry->price('gemini-3-pro-image', '512'));
-        $this->assertSame($registry->price('gemini-3.1-flash-lite-image', '1K'), $registry->price('gemini-3.1-flash-lite-image', '512'));
+        // Measured from real responses: Pro and Lite bill 0.5K as a 1K image
+        // and are no faster at it, so they do not offer it.
+        $this->assertNull($registry->price('gemini-3-pro-image', '512'));
+        $this->assertNull($registry->price('gemini-3.1-flash-lite-image', '512'));
         $this->assertSame(0.045, $registry->price('gemini-3.1-flash-image', '512'));
         $this->assertLessThan($registry->price('gemini-3.1-flash-image', '1K'), $registry->price('gemini-3.1-flash-image', '512'));
     }

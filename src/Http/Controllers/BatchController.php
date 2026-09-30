@@ -50,7 +50,7 @@ class BatchController extends CpController
         // against the registry: a mismatch is caught here, for free, rather
         // than by Google after the request has been sent.
         if (! in_array($data['quality'], $models->qualities($data['model']), true)) {
-            throw ValidationException::withMessages(['quality' => $models->label($data['model']).' cannot produce '.$data['quality'].' images.']);
+            throw ValidationException::withMessages(['quality' => $models->label($data['model']).' cannot produce '.ModelRegistry::qualityLabel($data['quality']).' images.']);
         }
 
         if (! in_array($data['aspect_ratio'], $models->aspectRatios($data['model']), true)) {

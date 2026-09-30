@@ -47,20 +47,23 @@ class UpscaleTest extends TestCase
     }
 
     #[Test]
-    public function the_half_k_quality_is_accepted_on_every_model_and_sent_as_512()
+    public function the_half_k_quality_is_sent_as_512_and_only_offered_on_nano_banana_2()
     {
         Http::fake(['*' => Http::response($this->interactionsResponse())]);
 
-        foreach (array_keys(config('statamic-darkroom.models')) as $model) {
+        $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload(['model' => 'gemini-3.1-flash-image', 'quality' => '512']))
+            ->assertCreated()
+            ->assertJsonPath('quality', '512')
+            ->assertJsonPath('qualityLabel', '0.5K');
+
+        foreach (['gemini-3-pro-image', 'gemini-3.1-flash-lite-image'] as $model) {
             $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload(['model' => $model, 'quality' => '512']))
-                ->assertCreated()
-                ->assertJsonPath('quality', '512')
-                ->assertJsonPath('qualityLabel', '0.5K');
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['quality' => 'cannot produce 0.5K images']);
         }
 
-        foreach (Http::recorded() as [$request]) {
-            $this->assertSame('512', $request['response_format']['image_size']);
-        }
+        Http::assertSentCount(1);
+        $this->assertSame('512', Http::recorded()[0][0]['response_format']['image_size']);
     }
 
     #[Test]
@@ -208,7 +211,7 @@ class UpscaleTest extends TestCase
         Http::fake();
 
         foreach (['512', '1K', '2K'] as $quality) {
-            $this->upscale(['batch' => $draft['id'], 'index' => 1, 'model' => 'gemini-3-pro-image', 'quality' => $quality])
+            $this->upscale(['batch' => $draft['id'], 'index' => 1, 'model' => 'gemini-3.1-flash-image', 'quality' => $quality])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors('quality');
         }

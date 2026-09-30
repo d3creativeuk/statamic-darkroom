@@ -234,7 +234,7 @@ class SaveTest extends TestCase
     }
 
     #[Test]
-    public function png_is_not_offered()
+    public function png_is_not_offered_unless_switched_on()
     {
         $batch = $this->ready();
 
@@ -247,6 +247,22 @@ class SaveTest extends TestCase
         $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload(['file_type' => 'png']))
             ->assertStatus(422)
             ->assertJsonValidationErrors('file_type');
+    }
+
+    #[Test]
+    public function png_can_be_switched_on()
+    {
+        // What DARKROOM_PNG=true adds to the config.
+        config()->set('statamic-darkroom.file_types.png', 'PNG');
+
+        $batch = $this->ready(['file_type' => 'png']);
+
+        $this->postJson($batch['items'][0]['urls']['save'], ['filename' => 'lossless']);
+
+        $png = getimagesizefromstring(Storage::disk('assets')->get('blog/lossless.png'));
+
+        $this->assertSame('image/png', $png['mime']);
+        $this->assertSame([320, 180], [$png[0], $png[1]]);
     }
 
     #[Test]

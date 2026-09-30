@@ -63,6 +63,8 @@ return [
     | supports to its price per image in USD, which drives both the Quality
     | menu and the cost estimate. Adding or retiring a model is an edit here.
     |
+    | "description" is shown under the Model menu. These are Google's own.
+    |
     | "system_instruction" is "native" when the model honours the API's system
     | instruction field, or "prepend" when it ignores that field and the
     | instruction has to go ahead of the prompt instead.
@@ -70,9 +72,10 @@ return [
     | "dimensions" holds pixel sizes by quality and ratio. A quality without
     | its own table is worked out from 1K. Leave it out when unknown.
     |
-    | "512" is the 0.5K size, for quick drafts. Google's docs list it for Nano
-    | Banana 2 only, but the API accepts it on all three. Only Nano Banana 2
-    | charges less for it: Pro and Lite bill a 0.5K image as a 1K one.
+    | "512" is the 0.5K size, for quick drafts. The API accepts it on all three
+    | models, but only Nano Banana 2 charges less for it. Pro and Lite bill it
+    | as 1K and were no faster at it (Pro about 20s, Lite about 3s at either
+    | size), so it is only offered where it saves money.
     |
     */
 
@@ -82,7 +85,8 @@ return [
 
         'gemini-3-pro-image' => [
             'label' => 'Nano Banana Pro',
-            'qualities' => ['512' => 0.134, '1K' => 0.134, '2K' => 0.134, '4K' => 0.24],
+            'description' => 'State-of-the-art image generation and editing model.',
+            'qualities' => ['1K' => 0.134, '2K' => 0.134, '4K' => 0.24],
             'aspect_ratios' => $aspectRatios,
             'system_instruction' => 'native',
             'dimensions' => $dimensions,
@@ -90,6 +94,7 @@ return [
 
         'gemini-3.1-flash-image' => [
             'label' => 'Nano Banana 2',
+            'description' => 'Pro-level visual intelligence with Flash-speed efficiency and reality-grounded generation capabilities.',
             'qualities' => ['512' => 0.045, '1K' => 0.0672, '2K' => 0.101, '4K' => 0.151],
             'aspect_ratios' => $aspectRatios,
             'system_instruction' => 'native',
@@ -98,7 +103,8 @@ return [
 
         'gemini-3.1-flash-lite-image' => [
             'label' => 'Nano Banana 2 Lite',
-            'qualities' => ['512' => 0.0336, '1K' => 0.0336],
+            'description' => 'Our smallest and most cost effective image generation and editing model, built for at scale usage.',
+            'qualities' => ['1K' => 0.0336],
             'aspect_ratios' => $aspectRatios,
             'system_instruction' => 'prepend',
             'dimensions' => $dimensions,
@@ -150,16 +156,21 @@ return [
     | Google only returns JPEG. Saving as JPEG keeps those bytes untouched;
     | WebP is converted on this server at "encode.quality".
     |
+    | PNG is off unless DARKROOM_PNG is true. It is converted from Google's
+    | JPEG, so it adds no detail, and in testing it was at least twice the
+    | size. Turn it on for sites that need PNG files.
+    |
     | Images are stored at the size they were generated. Set
     | "apply_source_preset" to true to run the container's source preset (for
     | example a 2000px cap) on them like any other upload.
     |
     */
 
-    'file_types' => [
+    'file_types' => array_filter([
         'jpg' => 'JPEG',
         'webp' => 'WebP',
-    ],
+        'png' => env('DARKROOM_PNG', false) ? 'PNG' : null,
+    ]),
 
     'encode' => [
         'quality' => 90,
