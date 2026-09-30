@@ -1,0 +1,16 @@
+<?php
+
+namespace D3Creative\Darkroom\Http\Controllers;
+
+use D3Creative\Darkroom\History\SavedImages;
+use Illuminate\Http\Request;
+use Statamic\Facades\User;
+use Statamic\Http\Controllers\CP\CpController;
+
+class HistoryController extends CpController
+{
+    public function index(Request $request, SavedImages $history)
+    {
+        return response()->json($history->page(User::current(), (int) $request->query('page', 1)));
+    }
+}

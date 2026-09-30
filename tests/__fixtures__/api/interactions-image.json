@@ -1,0 +1,45 @@
+{
+    "status": "completed",
+    "usage": {
+        "total_tokens": 1341,
+        "total_input_tokens": 16,
+        "input_tokens_by_modality": [
+            {
+                "modality": "text",
+                "tokens": 16
+            }
+        ],
+        "total_cached_tokens": 0,
+        "total_output_tokens": 1201,
+        "output_tokens_by_modality": [
+            {
+                "modality": "image",
+                "tokens": 1120
+            }
+        ],
+        "total_tool_use_tokens": 0,
+        "total_thought_tokens": 124,
+        "raw_prompt_token": 462
+    },
+    "created": "2026-09-30T13:57:16Z",
+    "updated": "2026-09-30T13:57:16Z",
+    "service_tier": "standard",
+    "steps": [
+        {
+            "signature": "c2lnbmF0dXJl",
+            "type": "thought"
+        },
+        {
+            "content": [
+                {
+                    "data": "/9j/4AAQSkZJRgABAQEAYABgAAD//gA7Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2luZyBJSkcgSlBFRyB2NjIpLCBxdWFsaXR5ID0gODAK/9sAQwAGBAUGBQQGBgUGBwcGCAoQCgoJCQoUDg8MEBcUGBgXFBYWGh0lHxobIxwWFiAsICMmJykqKRkfLTAtKDAlKCko/9sAQwEHBwcKCAoTCgoTKBoWGigoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo/8AAEQgACAAIAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A4Ciiivnj9hP/2Q==",
+                    "mime_type": "image/jpeg",
+                    "type": "image"
+                }
+            ],
+            "type": "model_output"
+        }
+    ],
+    "object": "interaction",
+    "model": "gemini-3-pro-image"
+}

@@ -1,0 +1,54 @@
+{
+    "name": "d3creative/statamic-darkroom",
+    "description": "Darkroom by D3 Creative - Generate images with Google's Nano Banana models from the Statamic Control Panel and save them straight into your asset library.",
+    "type": "statamic-addon",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "D3 Creative",
+            "homepage": "https://d3creative.uk"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "statamic/cms": "^6.34"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.8 || ^11.0",
+        "phpunit/phpunit": "^12.5 || ^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "D3Creative\\Darkroom\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "D3Creative\\Darkroom\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Darkroom",
+            "description": "Generate images with Google's Nano Banana models and save them straight into your asset library.",
+            "developer": "D3 Creative",
+            "developer_url": "https://d3creative.uk",
+            "tags": [
+                "ai",
+                "images",
+                "assets"
+            ]
+        },
+        "laravel": {
+            "providers": [
+                "D3Creative\\Darkroom\\ServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pixelfear/composer-dist-plugin": true
+        }
+    },
+    "prefer-stable": true
+}

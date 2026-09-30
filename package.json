@@ -1,0 +1,16 @@
+{
+    "name": "statamic-darkroom",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite build --watch"
+    },
+    "devDependencies": {
+        "@statamic/cms": "file:../d3creative/vendor/statamic/cms/resources/dist-package",
+        "@vitejs/plugin-vue": "^6.0.0",
+        "laravel-vite-plugin": "^3.0.0",
+        "vite": "^8.0.0",
+        "vue": "^3.4.0"
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "error": {
+        "code": 400,
+        "message": "Invalid value at 'generation_config.response_format.image.image_size' (type.googleapis.com/google.ai.generativelanguage.v1beta.ImageResponseFormat.ImageSize), \"1K\"\nInvalid value at 'generation_config.response_format.image.aspect_ratio' (type.googleapis.com/google.ai.generativelanguage.v1beta.ImageResponseFormat.AspectRatio), \"1:1\"",
+        "status": "INVALID_ARGUMENT",
+        "details": [
+            {
+                "@type": "type.googleapis.com/google.rpc.BadRequest",
+                "fieldViolations": [
+                    {
+                        "field": "generation_config.response_format.image.image_size",
+                        "description": "Invalid value at 'generation_config.response_format.image.image_size' (type.googleapis.com/google.ai.generativelanguage.v1beta.ImageResponseFormat.ImageSize), \"1K\""
+                    },
+                    {
+                        "field": "generation_config.response_format.image.aspect_ratio",
+                        "description": "Invalid value at 'generation_config.response_format.image.aspect_ratio' (type.googleapis.com/google.ai.generativelanguage.v1beta.ImageResponseFormat.AspectRatio), \"1:1\""
+                    }
+                ]
+            }
+        ]
+    }
+}
