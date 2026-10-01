@@ -79,8 +79,8 @@ const tab = ref('history');
 const saved = reactive({ ...props.history, search: '', loading: false });
 const months = ref(props.usage);
 
-function historyUrl(page = 1) {
-    const query = new URLSearchParams({ page });
+function historyUrl(page, perPage) {
+    const query = new URLSearchParams({ page, per_page: perPage });
 
     if (saved.search.trim()) {
         query.set('search', saved.search.trim());
@@ -89,24 +89,32 @@ function historyUrl(page = 1) {
     return `${props.urls.history}?${query}`;
 }
 
-// Each search, or a save landing mid-search, asks again. Only the latest
+// Each search, page change or save landing asks again. Only the latest
 // answer is kept, so a slow early reply cannot overwrite a newer one.
 let historyRequest = 0;
 
-async function refreshHistory() {
+/**
+ * Load a page of History; by default the one on screen, so a save or an
+ * edit refreshes it in place. The server moves back to the last page if
+ * this one no longer exists.
+ */
+async function refreshHistory({ page = saved.meta.current_page, perPage = saved.meta.per_page, report = false } = {}) {
     const request = ++historyRequest;
 
     saved.loading = true;
 
     try {
-        const fresh = await http('GET', historyUrl());
+        const fresh = await http('GET', historyUrl(page, perPage));
 
         if (request === historyRequest) {
             Object.assign(saved, fresh);
         }
     } catch (e) {
-        // The list on screen is only stale, not wrong. The next save or a
-        // reload will bring it up to date.
+        // Unasked for, the list on screen is only stale, not wrong, and the
+        // next save or a reload brings it up to date. Asked for, say so.
+        if (report) {
+            Statamic.$toast.error(e.message);
+        }
     } finally {
         if (request === historyRequest) {
             saved.loading = false;
@@ -120,25 +128,20 @@ watch(
     () => saved.search,
     () => {
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(refreshHistory, 300);
+        searchTimer = setTimeout(() => refreshHistory({ page: 1 }), 300);
     },
 );
 
-async function moreHistory() {
-    saved.loading = true;
+function historyPage(page) {
+    refreshHistory({ page, report: true });
+}
 
-    try {
-        const next = await http('GET', historyUrl(saved.nextPage));
+// Kept as a user preference, as core's listings keep theirs, so the choice
+// follows the user to the next visit and to other devices.
+function historyPerPage(perPage) {
+    Statamic.$preferences.set('darkroom.history.per_page', perPage);
 
-        saved.items = [...saved.items, ...next.items];
-        saved.total = next.total;
-        saved.all = next.all;
-        saved.nextPage = next.nextPage;
-    } catch (e) {
-        Statamic.$toast.error(e.message);
-    } finally {
-        saved.loading = false;
-    }
+    refreshHistory({ page: 1, perPage, report: true });
 }
 
 async function refreshUsage() {
@@ -598,16 +601,16 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                     <History
                         v-model:search="saved.search"
                         :items="saved.items"
-                        :total="saved.total"
                         :all="saved.all"
-                        :has-more="saved.nextPage !== null"
+                        :meta="saved.meta"
                         :loading="saved.loading"
                         :disabled="!ready || generating || submitting"
                         :can-upscale="canUpscale"
                         @reuse="reuse"
                         @open="openAsset"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
-                        @more="moreHistory"
+                        @page="historyPage"
+                        @per-page="historyPerPage"
                     />
                 </Card>
             </TabContent>

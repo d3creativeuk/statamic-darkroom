@@ -2,6 +2,7 @@
 
 namespace D3Creative\Darkroom\Tests\Feature;
 
+use D3Creative\Darkroom\History\SavedImages;
 use D3Creative\Darkroom\Tests\TestCase;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -32,9 +33,9 @@ class HistoryTest extends TestCase
         return $this->getJson($created['urls']['show'])->json('items.0.asset.id');
     }
 
-    protected function history(int $page = 1): array
+    protected function history(int $page = 1, array $query = []): array
     {
-        return $this->getJson(cp_route('darkroom.history.index', ['page' => $page]))->assertOk()->json();
+        return $this->getJson(cp_route('darkroom.history.index', ['page' => $page, ...$query]))->assertOk()->json();
     }
 
     #[Test]
@@ -75,7 +76,7 @@ class HistoryTest extends TestCase
         $history = $this->history();
 
         $this->assertSame(1, $history['total']);
-        $this->assertNull($history['nextPage']);
+        $this->assertSame(1, $history['meta']['last_page']);
 
         $item = $history['items'][0];
 
@@ -98,23 +99,76 @@ class HistoryTest extends TestCase
     #[Test]
     public function the_newest_image_comes_first_and_the_list_is_paged()
     {
-        config()->set('statamic-darkroom.history.per_page', 2);
-
-        foreach (['first', 'second', 'third'] as $name) {
-            $this->generateAndSave(['prompt' => ucfirst($name)], ['filename' => $name]);
-            $this->travel(1)->minutes();
-        }
+        $this->threeImagesPagedInTwos();
 
         $one = $this->history();
 
         $this->assertSame(['Third', 'Second'], array_column($one['items'], 'prompt'));
         $this->assertSame(3, $one['total']);
-        $this->assertSame(2, $one['nextPage']);
+        $this->assertSame(['current_page' => 1, 'last_page' => 2, 'per_page' => 2, 'from' => 1, 'to' => 2, 'total' => 3], $one['meta']);
 
         $two = $this->history(2);
 
         $this->assertSame(['First'], array_column($two['items'], 'prompt'));
-        $this->assertNull($two['nextPage']);
+        $this->assertSame(['current_page' => 2, 'last_page' => 2, 'per_page' => 2, 'from' => 3, 'to' => 3, 'total' => 3], $two['meta']);
+    }
+
+    #[Test]
+    public function a_page_past_the_end_shows_the_last_page()
+    {
+        $this->threeImagesPagedInTwos();
+
+        $history = $this->history(9);
+
+        $this->assertSame(['First'], array_column($history['items'], 'prompt'));
+        $this->assertSame(2, $history['meta']['current_page']);
+    }
+
+    #[Test]
+    public function the_page_size_is_one_the_control_panel_offers()
+    {
+        $this->threeImagesPagedInTwos();
+
+        $this->assertCount(3, $this->history(1, ['per_page' => 3])['items']);
+
+        // Anything the Per Page menu does not offer is the default instead.
+        $odd = $this->history(1, ['per_page' => 7]);
+
+        $this->assertCount(2, $odd['items']);
+        $this->assertSame(2, $odd['meta']['per_page']);
+    }
+
+    #[Test]
+    public function the_page_size_chosen_before_is_remembered_as_a_preference()
+    {
+        $this->threeImagesPagedInTwos();
+
+        // What the Per Page menu saves through Statamic.$preferences.
+        $user = $this->superUser();
+        $user->setPreference(SavedImages::PER_PAGE_PREFERENCE, 3)->save();
+        $this->actingAs($user);
+
+        $this->assertSame(3, $this->history()['meta']['per_page']);
+
+        $this->get(cp_route('darkroom.index'))->assertInertia(fn ($page) => $page
+            ->where('history.meta.per_page', 3)
+            ->has('history.items', 3)
+        );
+    }
+
+    /**
+     * Three saved images, a minute apart, with the Control Panel paging
+     * listings in twos and offering threes.
+     */
+    protected function threeImagesPagedInTwos(): void
+    {
+        config()->set('statamic.cp.pagination_size', 2);
+        config()->set('statamic.cp.pagination_size_options', [2, 3]);
+
+        foreach (['first', 'second', 'third'] as $name) {
+            $this->generateAndSave(['prompt' => ucfirst($name)], ['filename' => $name]);
+            $this->travel(1)->minutes();
+        }
     }
 
     #[Test]

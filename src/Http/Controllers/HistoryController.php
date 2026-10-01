@@ -15,6 +15,7 @@ class HistoryController extends CpController
             User::current(),
             (int) $request->query('page', 1),
             mb_substr((string) $request->query('search', ''), 0, 200),
+            $request->filled('per_page') ? (int) $request->query('per_page') : null,
         ));
     }
 }

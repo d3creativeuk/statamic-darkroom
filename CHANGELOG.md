@@ -11,9 +11,14 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 ### Changed
 
 - PNG is offered as a file type alongside JPEG and WebP, with no setting needed. `DARKROOM_PNG` is no longer used.
-- Clicking an image in History, or **Open asset**, opens Statamic's asset editor over the page instead of leaving Darkroom.
+- Clicking an image in History opens Statamic's asset editor over the page instead of leaving Darkroom. The separate **Open asset** button is gone.
 - An expired session now says to reload and log in again, instead of a bare "Unauthenticated."
-- History cards show the date and size under the image instead of the prompt and file path, and History shows 24 images at a time, up from 12.
+- History cards show the date and size under the image instead of the prompt and file path, and **Reuse prompt** and **Upscale** as one extra small button group.
+- History pages like the Assets listing, with core's page buttons and **Per Page** menu, instead of **Show more**. The choice is kept as a user preference.
+
+### Removed
+
+- The `history.per_page` setting. History uses the Control Panel's own page sizes.
 
 ### Added
 

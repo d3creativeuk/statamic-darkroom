@@ -1,20 +1,20 @@
 <script setup>
-import { Badge, Button, Description, Input } from '@statamic/cms/ui';
+import { Badge, Button, ButtonGroup, Description, Input, Pagination } from '@statamic/cms/ui';
 import { shortDate } from '../composables/format.js';
 
 defineProps({
     // Given a quality, says whether any model can go larger.
     canUpscale: { type: Function, default: () => false },
     items: { type: Array, required: true },
-    // Images matching the search, and every saved image.
-    total: { type: Number, default: 0 },
+    // Every saved image, search or not.
     all: { type: Number, default: 0 },
-    hasMore: { type: Boolean, default: false },
+    // Page, page size and totals, shaped as core's Pagination expects.
+    meta: { type: Object, required: true },
     loading: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['reuse', 'more', 'upscale', 'open']);
+const emit = defineEmits(['reuse', 'upscale', 'open', 'page', 'per-page']);
 
 // Searches prompts, filenames, alt text and instruction titles. The page
 // does the fetching.
@@ -70,26 +70,30 @@ const search = defineModel('search', { type: String, default: '' });
                         <Badge v-if="item.instructionTitle" size="sm" icon="ai-sparks">{{ item.instructionTitle }}</Badge>
                     </div>
 
-                    <div class="dr-history-actions">
-                        <Button size="sm" :disabled="disabled" @click="emit('reuse', item)">
+                    <!-- Opening the asset is the thumbnail's job. -->
+                    <ButtonGroup class="dr-history-actions">
+                        <Button size="xs" :disabled="disabled" @click="emit('reuse', item)">
                             {{ __('Reuse prompt') }}
                         </Button>
-                        <Button v-if="canUpscale(item.quality)" size="sm" :disabled="disabled" @click="emit('upscale', item)">
+                        <Button v-if="canUpscale(item.quality)" size="xs" :disabled="disabled" @click="emit('upscale', item)">
                             {{ __('Upscale') }}
                         </Button>
-                        <Button size="sm" variant="ghost" @click="emit('open', item)">
-                            {{ __('Open asset') }}
-                        </Button>
-                    </div>
+                    </ButtonGroup>
                 </div>
             </article>
         </div>
 
-        <div v-if="hasMore" class="dr-history-more">
-            <Button :loading="loading" @click="emit('more')">
-                {{ __('Show more (:shown of :total)', { shown: items.length, total }) }}
-            </Button>
-        </div>
+        <!-- Core's own pagination, as under the Assets listing: the range,
+             page buttons and the Per Page menu. -->
+        <Pagination
+            v-if="items.length"
+            class="dr-history-pagination"
+            :resource-meta="meta"
+            :per-page="meta.per_page"
+            :scroll-to-top="false"
+            @page-selected="(page) => emit('page', page)"
+            @per-page-changed="(size) => emit('per-page', size)"
+        />
     </div>
 </template>
 
@@ -154,16 +158,12 @@ const search = defineModel('search', { type: String, default: '' });
     font-variant-numeric: tabular-nums;
 }
 
+/* Core's ButtonGroup lays out and joins the buttons; this only spaces it. */
 .dr-history-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
     margin-top: 0.25rem;
 }
 
-.dr-history-more {
-    display: flex;
-    justify-content: center;
+.dr-history-pagination {
     margin-top: 1.25rem;
 }
 </style>

@@ -76,7 +76,7 @@ The system instruction is not sent with an upscale. The image already carries th
 
 ### History
 
-Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the date it was made, its size, and the model, aspect ratio and quality that made it. **Reuse prompt** puts the prompt and all of those settings back into the form. The search box finds images by any word in the prompt, filename, alt text or system instruction, so a folder name finds everything saved in it. Clicking an image, or **Open asset**, opens Statamic's own asset editor over the page, so you can change alt text, set a focal point, crop or rename it without leaving Darkroom.
+Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the date it was made, its size, and the model, aspect ratio and quality that made it. **Reuse prompt** puts the prompt and all of those settings back into the form. The search box finds images by any word in the prompt, filename, alt text or system instruction, so a folder name finds everything saved in it. It pages like the Assets listing, with the same **Per Page** menu, and remembers your choice as a user preference. Clicking an image opens Statamic's own asset editor over the page, so you can change alt text, set a focal point, crop or rename it without leaving Darkroom.
 
 The history is not a separate log. The prompt and settings are stored on the asset itself, under a `darkroom` key in its metadata. So the history follows your assets wherever they are synced, editing an asset later keeps it, and deleting an asset removes it from the list. You only see images from containers you are allowed to view.
 
@@ -139,7 +139,6 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `encode.quality` | `90` | Compression used when converting to WebP |
 | `save.apply_source_preset` | `false` | Run the container's source preset on saved images |
 | `temp.retention_hours` | `24` | How long unsaved images are kept |
-| `history.per_page` | `24` | How many saved images History shows at a time |
 | `upscale.prompt` | see config | The instruction sent with an image when upscaling it |
 | `alt_text.model` | `gemini-3.5-flash-lite` | The text model that writes alt text. Also `DARKROOM_ALT_TEXT_MODEL` |
 | `alt_text.prompt` | see config | What that model is asked to write |

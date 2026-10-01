@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Models\ModelRegistry;
 use Illuminate\Support\Facades\Gate;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Facades\AssetContainer;
+use Statamic\Facades\Preference;
 
 /**
  * The images Darkroom has saved, newest first.
@@ -47,15 +48,21 @@ class SavedImages
     }
 
     /**
-     * "total" counts what matches the search; "all" counts every saved image,
-     * search or not, which is the number the tab shows.
-     *
-     * @return array{items: array<int, array<string, mixed>>, total: int, all: int, nextPage: int|null}
+     * The user preference that holds how many images History shows a page,
+     * set by core's Per Page menu in the same way as its own listings.
      */
-    public function page($user, int $page = 1, ?string $search = null): array
+    public const PER_PAGE_PREFERENCE = 'darkroom.history.per_page';
+
+    /**
+     * "total" counts what matches the search; "all" counts every saved image,
+     * search or not, which is the number the tab shows. "meta" is shaped like
+     * a Laravel resource's, which is what core's Pagination component reads.
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int, all: int, meta: array<string, int>}
+     */
+    public function page($user, int $page = 1, ?string $search = null, ?int $perPage = null): array
     {
-        $perPage = max(1, (int) ($this->config['history']['per_page'] ?? 12));
-        $page = max(1, $page);
+        $perPage = $this->perPage($perPage ?? Preference::get(self::PER_PAGE_PREFERENCE));
         $search = trim((string) $search);
 
         // Statamic queries assets one container at a time, so each container
@@ -69,12 +76,40 @@ class SavedImages
             ->sortByDesc(fn (AssetContract $asset) => (int) ($asset->get(self::KEY)['generated_at'] ?? 0))
             ->values();
 
+        $total = $assets->count();
+        $lastPage = max(1, (int) ceil($total / $perPage));
+
+        // A page past the end, after deleting images or showing more per
+        // page, lands on the last page rather than an empty one.
+        $page = min(max(1, $page), $lastPage);
+        $items = $assets->forPage($page, $perPage)->map(fn ($asset) => $this->present($asset))->values()->all();
+
         return [
-            'items' => $assets->forPage($page, $perPage)->map(fn ($asset) => $this->present($asset))->values()->all(),
-            'total' => $assets->count(),
+            'items' => $items,
+            'total' => $total,
             'all' => $all->count(),
-            'nextPage' => $assets->count() > $page * $perPage ? $page + 1 : null,
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'from' => $items ? ($page - 1) * $perPage + 1 : 0,
+                'to' => ($page - 1) * $perPage + count($items),
+                'total' => $total,
+            ],
         ];
+    }
+
+    /**
+     * One of the page sizes the Control Panel offers everywhere else, so the
+     * Per Page menu always has the current value in it. Anything else falls
+     * back to the Control Panel's default.
+     */
+    protected function perPage(mixed $requested): int
+    {
+        $default = (int) config('statamic.cp.pagination_size', 50);
+        $allowed = [$default, ...array_map('intval', (array) config('statamic.cp.pagination_size_options', []))];
+
+        return in_array((int) $requested, $allowed, true) ? (int) $requested : max(1, $default);
     }
 
     /**

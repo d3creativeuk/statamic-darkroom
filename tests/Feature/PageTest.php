@@ -52,7 +52,12 @@ class PageTest extends TestCase
             ->where('prompts', [])
             ->where('instructions', [])
             ->where('batches', [])
-            ->where('history', ['items' => [], 'total' => 0, 'all' => 0, 'nextPage' => null])
+            ->where('history', [
+                'items' => [],
+                'total' => 0,
+                'all' => 0,
+                'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 50, 'from' => 0, 'to' => 0, 'total' => 0],
+            ])
             ->where('usage', [])
             ->where('fileTypes', [['value' => 'jpg', 'label' => 'JPEG'], ['value' => 'webp', 'label' => 'WebP'], ['value' => 'png', 'label' => 'PNG']])
             ->has('urls.batches')

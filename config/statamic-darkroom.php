@@ -289,17 +289,15 @@ return [
     | History lists the assets Darkroom has saved, newest first, and can be
     | searched by prompt, filename, alt text or system instruction. The prompt
     | and settings are stored on each asset, so there is nothing to configure
-    | beyond how many to show at a time.
+    | here. How many show a page is chosen with the Per Page menu, from the
+    | same sizes as every other Control Panel listing (statamic.cp's
+    | pagination_size and pagination_size_options).
     |
     | The usage log records every image Google returns, saved or not, with its
     | list price at the time. It is kept outside the temporary storage above
     | so pruning never touches it.
     |
     */
-
-    'history' => [
-        'per_page' => 24,
-    ],
 
     'usage' => [
         'disk' => 'local',
