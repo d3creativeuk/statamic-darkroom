@@ -76,26 +76,63 @@ const instructionsPanel = ref(null);
 const composer = ref(null);
 
 const tab = ref('history');
-const saved = reactive({ ...props.history, loading: false });
+const saved = reactive({ ...props.history, search: '', loading: false });
 const months = ref(props.usage);
 
+function historyUrl(page = 1) {
+    const query = new URLSearchParams({ page });
+
+    if (saved.search.trim()) {
+        query.set('search', saved.search.trim());
+    }
+
+    return `${props.urls.history}?${query}`;
+}
+
+// Each search, or a save landing mid-search, asks again. Only the latest
+// answer is kept, so a slow early reply cannot overwrite a newer one.
+let historyRequest = 0;
+
 async function refreshHistory() {
+    const request = ++historyRequest;
+
+    saved.loading = true;
+
     try {
-        Object.assign(saved, await http('GET', props.urls.history));
+        const fresh = await http('GET', historyUrl());
+
+        if (request === historyRequest) {
+            Object.assign(saved, fresh);
+        }
     } catch (e) {
         // The list on screen is only stale, not wrong. The next save or a
         // reload will bring it up to date.
+    } finally {
+        if (request === historyRequest) {
+            saved.loading = false;
+        }
     }
 }
+
+let searchTimer = null;
+
+watch(
+    () => saved.search,
+    () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(refreshHistory, 300);
+    },
+);
 
 async function moreHistory() {
     saved.loading = true;
 
     try {
-        const next = await http('GET', `${props.urls.history}?page=${saved.nextPage}`);
+        const next = await http('GET', historyUrl(saved.nextPage));
 
         saved.items = [...saved.items, ...next.items];
         saved.total = next.total;
+        saved.all = next.all;
         saved.nextPage = next.nextPage;
     } catch (e) {
         Statamic.$toast.error(e.message);
@@ -552,15 +589,17 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
 
         <Tabs v-model="tab" class="dr-archive">
             <TabList>
-                <TabTrigger name="history" :text="saved.total ? __('History (:n)', { n: saved.total }) : __('History')" />
+                <TabTrigger name="history" :text="saved.all ? __('History (:n)', { n: saved.all }) : __('History')" />
                 <TabTrigger name="spend" :text="__('Spend')" />
             </TabList>
 
             <TabContent name="history">
                 <Card class="dr-archive-card">
                     <History
+                        v-model:search="saved.search"
                         :items="saved.items"
                         :total="saved.total"
+                        :all="saved.all"
                         :has-more="saved.nextPage !== null"
                         :loading="saved.loading"
                         :disabled="!ready || generating || submitting"

@@ -47,26 +47,55 @@ class SavedImages
     }
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, total: int, nextPage: int|null}
+     * "total" counts what matches the search; "all" counts every saved image,
+     * search or not, which is the number the tab shows.
+     *
+     * @return array{items: array<int, array<string, mixed>>, total: int, all: int, nextPage: int|null}
      */
-    public function page($user, int $page = 1): array
+    public function page($user, int $page = 1, ?string $search = null): array
     {
         $perPage = max(1, (int) ($this->config['history']['per_page'] ?? 12));
         $page = max(1, $page);
+        $search = trim((string) $search);
 
         // Statamic queries assets one container at a time, so each container
         // the user may look at is asked in turn and the results merged.
-        $assets = AssetContainer::all()
+        $all = AssetContainer::all()
             ->filter(fn ($container) => $user && Gate::forUser($user)->allows('view', $container))
-            ->flatMap(fn ($container) => $container->queryAssets()->whereNotNull(self::KEY)->get()->all())
+            ->flatMap(fn ($container) => $container->queryAssets()->whereNotNull(self::KEY)->get()->all());
+
+        $assets = $all
+            ->when($search !== '', fn ($assets) => $assets->filter(fn (AssetContract $asset) => $this->matches($asset, $search)))
             ->sortByDesc(fn (AssetContract $asset) => (int) ($asset->get(self::KEY)['generated_at'] ?? 0))
             ->values();
 
         return [
             'items' => $assets->forPage($page, $perPage)->map(fn ($asset) => $this->present($asset))->values()->all(),
             'total' => $assets->count(),
+            'all' => $all->count(),
             'nextPage' => $assets->count() > $page * $perPage ? $page + 1 : null,
         ];
+    }
+
+    /**
+     * Whether every word searched for appears somewhere in the prompt, the
+     * file's path, its alt text or the system instruction's title, so
+     * "lighthouse dusk" finds "A lighthouse at dusk" and a folder name finds
+     * everything saved in it.
+     */
+    protected function matches(AssetContract $asset, string $search): bool
+    {
+        $stamp = (array) $asset->get(self::KEY);
+
+        $haystack = mb_strtolower(implode(' ', [
+            $stamp['prompt'] ?? '',
+            $asset->path(),
+            $asset->get('alt') ?? '',
+            $stamp['instruction_title'] ?? '',
+        ]));
+
+        return collect(preg_split('/\s+/', mb_strtolower($search)))
+            ->every(fn (string $word) => str_contains($haystack, $word));
     }
 
     /**

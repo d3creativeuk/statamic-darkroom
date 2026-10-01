@@ -13,6 +13,11 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 - PNG is offered as a file type alongside JPEG and WebP, with no setting needed. `DARKROOM_PNG` is no longer used.
 - Clicking an image in History, or **Open asset**, opens Statamic's asset editor over the page instead of leaving Darkroom.
 - An expired session now says to reload and log in again, instead of a bare "Unauthenticated."
+- History cards show the date and size under the image instead of the prompt and file path, and History shows 24 images at a time, up from 12.
+
+### Added
+
+- Search History by prompt, filename, alt text or system instruction.
 
 ## [1.0.0] - 2026-09-30
 

@@ -118,6 +118,31 @@ class HistoryTest extends TestCase
     }
 
     #[Test]
+    public function history_can_be_searched_by_prompt_filename_alt_text_and_instruction()
+    {
+        $instruction = $this->postJson(cp_route('darkroom.instructions.store'), ['title' => 'House style', 'body' => 'Line drawings only.'])->json('saved');
+
+        $this->generateAndSave(['prompt' => 'A lighthouse at dusk', 'instruction' => $instruction['id']], ['filename' => 'coast', 'alt' => 'Waves on rocks']);
+        $this->generateAndSave(['prompt' => 'A red bicycle'], ['filename' => 'bike', 'alt' => 'A bicycle by a wall']);
+
+        $search = fn (string $term) => $this->getJson(cp_route('darkroom.history.index', ['search' => $term]))->assertOk()->json();
+
+        // Every word has to match, in any order and any case.
+        $this->assertSame(['A lighthouse at dusk'], array_column($search('DUSK lighthouse')['items'], 'prompt'));
+        $this->assertSame(['A red bicycle'], array_column($search('bike')['items'], 'prompt'));
+        $this->assertSame(['A lighthouse at dusk'], array_column($search('rocks')['items'], 'prompt'));
+        $this->assertSame(['A lighthouse at dusk'], array_column($search('house style')['items'], 'prompt'));
+        $this->assertSame([], $search('lighthouse bicycle')['items']);
+
+        // The count of matches, and of everything, so the tab keeps its total.
+        $result = $search('bicycle');
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame(2, $result['all']);
+        $this->assertSame(2, $search('  ')['total']);
+    }
+
+    #[Test]
     public function the_page_is_handed_the_first_page_of_history()
     {
         $this->generateAndSave(['prompt' => 'A lighthouse at dusk'], ['filename' => 'lighthouse']);

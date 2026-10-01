@@ -11,6 +11,10 @@ class HistoryController extends CpController
 {
     public function index(Request $request, SavedImages $history)
     {
-        return response()->json($history->page(User::current(), (int) $request->query('page', 1)));
+        return response()->json($history->page(
+            User::current(),
+            (int) $request->query('page', 1),
+            mb_substr((string) $request->query('search', ''), 0, 200),
+        ));
     }
 }

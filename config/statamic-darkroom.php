@@ -286,7 +286,8 @@ return [
     | History and spend
     |--------------------------------------------------------------------------
     |
-    | History lists the assets Darkroom has saved, newest first. The prompt
+    | History lists the assets Darkroom has saved, newest first, and can be
+    | searched by prompt, filename, alt text or system instruction. The prompt
     | and settings are stored on each asset, so there is nothing to configure
     | beyond how many to show at a time.
     |
@@ -297,7 +298,7 @@ return [
     */
 
     'history' => [
-        'per_page' => 12,
+        'per_page' => 24,
     ],
 
     'usage' => [
