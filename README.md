@@ -172,6 +172,27 @@ php artisan darkroom:prune
 - Your prompts and images are handled under Google's Gemini API terms, not by D3 Creative. Nothing is sent anywhere else.
 - Apart from upscaling, generating from a reference image is not supported yet.
 
+## Uninstalling
+
+```bash
+composer remove d3creative/statamic-darkroom
+rm -rf public/vendor/statamic-darkroom
+```
+
+The first command removes Darkroom from the Control Panel, along with its routes, permission and daily prune. The second deletes the Control Panel scripts and styles that were copied into `public/` on install, which Composer does not remove.
+
+Darkroom leaves everything it made in place, so you choose what to keep:
+
+| What | Where | Keep it if |
+|---|---|---|
+| Saved prompts and system instructions | `resources/addons/statamic-darkroom/` | You might reinstall. Darkroom picks them up again |
+| Spend log | `storage/app/statamic-darkroom/usage/` | You want a record of past spend. Everything else under `storage/app/statamic-darkroom/` is unsaved images and test output, and can go |
+| Config | `config/statamic-darkroom.php` | Only there if you published it |
+| API key | `GEMINI_API_KEY` in `.env`, plus any `DARKROOM_` variables | Something else uses the key |
+| Permission | `use darkroom` in `resources/users/roles.yaml` | Only there if you gave it to a role. It does nothing once Darkroom is gone |
+
+Images you saved stay in your asset library as ordinary assets. Each one keeps a `darkroom` entry in its metadata with the prompt and settings that made it. Nothing reads it without Darkroom, and if you reinstall, they appear in History again.
+
 ## Testing
 
 ```bash

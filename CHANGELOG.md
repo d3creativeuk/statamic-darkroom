@@ -23,6 +23,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 ### Added
 
 - Search History by prompt, filename, alt text or system instruction.
+- Uninstall instructions in the README, including what Darkroom leaves behind.
 
 ## [1.0.0] - 2026-09-30
 
