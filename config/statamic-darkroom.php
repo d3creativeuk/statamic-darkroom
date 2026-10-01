@@ -154,11 +154,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Google only returns JPEG. Saving as JPEG keeps those bytes untouched;
-    | WebP is converted on this server at "encode.quality".
-    |
-    | PNG is off unless DARKROOM_PNG is true. It is converted from Google's
-    | JPEG, so it adds no detail, and in testing it was at least twice the
-    | size. Turn it on for sites that need PNG files.
+    | WebP is converted on this server at "encode.quality". PNG is a lossless
+    | copy of that JPEG: it adds no detail and is several times the size, but
+    | some uses need the format.
     |
     | Images are stored at the size they were generated. Set
     | "apply_source_preset" to true to run the container's source preset (for
@@ -166,11 +164,11 @@ return [
     |
     */
 
-    'file_types' => array_filter([
+    'file_types' => [
         'jpg' => 'JPEG',
         'webp' => 'WebP',
-        'png' => env('DARKROOM_PNG', false) ? 'PNG' : null,
-    ]),
+        'png' => 'PNG',
+    ],
 
     'encode' => [
         'quality' => 90,

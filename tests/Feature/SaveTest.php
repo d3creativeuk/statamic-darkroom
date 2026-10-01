@@ -234,27 +234,8 @@ class SaveTest extends TestCase
     }
 
     #[Test]
-    public function png_is_not_offered_unless_switched_on()
+    public function it_converts_to_png()
     {
-        $batch = $this->ready();
-
-        $this->postJson($batch['items'][0]['urls']['save'], ['filename' => 'nope', 'file_type' => 'png'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('file_type');
-
-        Http::fake();
-
-        $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload(['file_type' => 'png']))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('file_type');
-    }
-
-    #[Test]
-    public function png_can_be_switched_on()
-    {
-        // What DARKROOM_PNG=true adds to the config.
-        config()->set('statamic-darkroom.file_types.png', 'PNG');
-
         $batch = $this->ready(['file_type' => 'png']);
 
         $this->postJson($batch['items'][0]['urls']['save'], ['filename' => 'lossless']);

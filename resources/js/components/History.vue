@@ -12,7 +12,7 @@ defineProps({
     disabled: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['reuse', 'more', 'upscale']);
+const emit = defineEmits(['reuse', 'more', 'upscale', 'open']);
 </script>
 
 <template>
@@ -23,10 +23,10 @@ const emit = defineEmits(['reuse', 'more', 'upscale']);
 
         <div v-else class="dr-history-grid">
             <article v-for="item in items" :key="item.id" class="dr-history-card">
-                <!-- A plain link in a new tab, so the generator stays as it is. -->
-                <a :href="item.editUrl" target="_blank" rel="noopener" class="dr-history-thumb">
+                <!-- Opens core's asset editor over this page rather than leaving it. -->
+                <button type="button" class="dr-history-thumb" :aria-label="__('Open :path', { path: item.path })" @click="emit('open', item)">
                     <img :src="item.thumbnail" :alt="item.alt || item.prompt" loading="lazy" />
-                </a>
+                </button>
 
                 <div class="dr-history-body">
                     <p class="dr-history-prompt" :title="item.prompt">{{ item.prompt }}</p>
@@ -56,7 +56,7 @@ const emit = defineEmits(['reuse', 'more', 'upscale']);
                         <Button v-if="canUpscale(item.quality)" size="sm" :disabled="disabled" @click="emit('upscale', item)">
                             {{ __('Upscale') }}
                         </Button>
-                        <Button size="sm" variant="ghost" :href="item.editUrl" target="_blank" icon-append="external-link">
+                        <Button size="sm" variant="ghost" @click="emit('open', item)">
                             {{ __('Open asset') }}
                         </Button>
                     </div>
@@ -92,6 +92,10 @@ const emit = defineEmits(['reuse', 'more', 'upscale']);
 /* One shape for every thumbnail keeps the grid even, whatever the image's
    own aspect ratio. The whole image is shown inside it, never cropped. */
 .dr-history-thumb {
+    width: 100%;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -17,6 +17,7 @@ import {
     Textarea,
 } from '@statamic/cms/ui';
 import ControlsBar from '../../components/ControlsBar.vue';
+import AssetViewer from '../../components/AssetViewer.vue';
 import FolderPicker from '../../components/FolderPicker.vue';
 import History from '../../components/History.vue';
 import ResultsGrid from '../../components/ResultsGrid.vue';
@@ -251,6 +252,29 @@ async function act(action, ...args) {
     } finally {
         acting.value = false;
     }
+}
+
+// The saved image open in core's asset editor, if any. Anything can change in
+// there (alt text, a rename, a delete), so History is read again on close.
+const viewing = ref(null);
+
+function openAsset(item) {
+    // The editor needs the container's browser settings, which only exist
+    // for containers the user can upload to. Anywhere else, fall back to the
+    // asset's own page, in a new tab so this one stays put.
+    if (!props.containers.some((container) => container.handle === item.container)) {
+        window.open(item.editUrl, '_blank', 'noopener');
+
+        return;
+    }
+
+    viewing.value = { id: item.id, container: item.container, folder: item.folder };
+}
+
+function assetClosed() {
+    viewing.value = null;
+
+    refreshHistory();
 }
 
 // Images waiting on a folder. Where to save is chosen at save time, in
@@ -542,6 +566,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         :disabled="!ready || generating || submitting"
                         :can-upscale="canUpscale"
                         @reuse="reuse"
+                        @open="openAsset"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
                         @more="moreHistory"
                     />
@@ -554,6 +579,8 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                 </Card>
             </TabContent>
         </Tabs>
+
+        <AssetViewer :containers="containers" :asset="viewing" @closed="assetClosed" />
 
         <FolderPicker
             v-model:open="picker.open"

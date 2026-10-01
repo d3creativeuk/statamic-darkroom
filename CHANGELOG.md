@@ -6,6 +6,14 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
 (`composer.json` carries no `version` field).
 
+## [Unreleased]
+
+### Changed
+
+- PNG is offered as a file type alongside JPEG and WebP, with no setting needed. `DARKROOM_PNG` is no longer used.
+- Clicking an image in History, or **Open asset**, opens Statamic's asset editor over the page instead of leaving Darkroom.
+- An expired session now says to reload and log in again, instead of a bare "Unauthenticated."
+
 ## [1.0.0] - 2026-09-30
 
 First release.

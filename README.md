@@ -43,8 +43,8 @@ Only containers a user may upload to are offered as destinations.
 |---|---|
 | Model | Nano Banana Pro, Nano Banana 2 or Nano Banana 2 Lite, with Google's description of the chosen one shown below the menu |
 | Aspect ratio | Auto, 1:1, 3:4, 4:3, 2:3, 3:2, 9:16, 16:9, 5:4, 4:5 or 21:9. Auto lets the model choose |
-| Quality | 1K, 2K or 4K, with the pixel size shown where it is known. Nano Banana 2 also offers 0.5K. Lite produces 1K only |
-| File type | JPEG or WebP. PNG too, if [switched on](#png) |
+| Quality | 1K, 2K or 4K, with the pixel size shown where it is known. Nano Banana 2 also offers 0.5K. Lite produces 1K only, a limit of the model: Google refuses larger sizes for it |
+| File type | JPEG, WebP or PNG |
 | Batch size | 1 to 4 images from the same prompt. Always starts at 1 |
 
 The estimated cost is shown next to the Generate button before you spend anything.
@@ -76,7 +76,7 @@ The system instruction is not sent with an upscale. The image already carries th
 
 ### History
 
-Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the prompt, model, aspect ratio and quality that made it. **Reuse prompt** puts all of that back into the form.
+Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the prompt, model, aspect ratio and quality that made it. **Reuse prompt** puts all of that back into the form. Clicking an image, or **Open asset**, opens Statamic's own asset editor over the page, so you can change alt text, set a focal point, crop or rename it without leaving Darkroom.
 
 The history is not a separate log. The prompt and settings are stored on the asset itself, under a `darkroom` key in its metadata. So the history follows your assets wherever they are synced, editing an asset later keeps it, and deleting an asset removes it from the list. You only see images from containers you are allowed to view.
 
@@ -103,7 +103,7 @@ Saved prompts and system instructions are stored as YAML in `resources/addons/st
 ## What gets saved
 
 - **Full size.** Images are stored at the size they were generated. A container's source preset (for example a 2000px cap on uploads) is not applied to them. Set `save.apply_source_preset` to `true` to change that.
-- **JPEG is untouched.** Google returns JPEG. Saving as JPEG keeps those exact bytes with no re-compression. WebP and PNG are converted on your server.
+- **JPEG is untouched.** Google returns JPEG. Saving as JPEG keeps those exact bytes with no re-compression. WebP and PNG are converted on your server. A PNG is a lossless copy of Google's JPEG, so it adds no detail and is several times the size; choose it when something needs the format.
 - **Like any other upload.** Saving goes through Statamic's own upload path, so filenames are made safe, a name that is already taken gets a suffix instead of overwriting, the usual asset events fire and Glide presets are warmed.
 
 Full-size sources are large. A 4K JPEG is around 9 MB.
@@ -135,7 +135,7 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `models` | three models | Each model's label, description, qualities with prices, aspect ratios and how it takes a system instruction. Add or retire a model here |
 | `batch.max` | `4` | Largest batch allowed |
 | `defaults` | 16:9, 2K, JPEG | What the form starts with, including a default container and folder |
-| `file_types` | JPEG, WebP | The file types offered when saving. PNG is added when `DARKROOM_PNG` is `true` |
+| `file_types` | JPEG, WebP, PNG | The file types offered when saving |
 | `encode.quality` | `90` | Compression used when converting to WebP |
 | `save.apply_source_preset` | `false` | Run the container's source preset on saved images |
 | `temp.retention_hours` | `24` | How long unsaved images are kept |
@@ -144,16 +144,6 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `alt_text.model` | `gemini-3.5-flash-lite` | The text model that writes alt text. Also `DARKROOM_ALT_TEXT_MODEL` |
 | `alt_text.prompt` | see config | What that model is asked to write |
 | `api` | `interactions` | Which Google endpoint to use. `generate_content` is the older one, kept as a fallback. Also `DARKROOM_API` |
-
-### PNG
-
-PNG is off by default. To offer it, add this to `.env`:
-
-```
-DARKROOM_PNG=true
-```
-
-Google only returns JPEG, so a PNG is converted from that JPEG on your server. It adds no detail, and in testing the file was at least twice the size. Turn it on only if your site needs PNG files.
 
 ## How generation runs
 

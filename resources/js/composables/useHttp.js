@@ -11,6 +11,13 @@ export class HttpError extends Error {
     }
 
     static describe(status, data) {
+        // A signed-out or expired session comes back as a bare
+        // "Unauthenticated." or "CSRF token mismatch.", which tells nobody
+        // what to do, so these always get the plain-English version.
+        if ([401, 419].includes(status)) {
+            return HttpError.MESSAGES[status];
+        }
+
         // A validation failure carries one message per field. The first is
         // the one worth showing.
         const first = Object.values(data?.errors ?? {})[0];
@@ -23,14 +30,16 @@ export class HttpError extends Error {
             return data.message;
         }
 
-        return (
-            {
-                401: __('Your session has expired. Reload the page and log in again.'),
-                403: __('You are not allowed to do that.'),
-                419: __('Your session has expired. Reload the page and try again.'),
-                429: __('Too many requests. Wait a moment and try again.'),
-            }[status] ?? __('Something went wrong.')
-        );
+        return HttpError.MESSAGES[status] ?? __('Something went wrong.');
+    }
+
+    static get MESSAGES() {
+        return {
+            401: __('Your session has expired. Reload the page and log in again.'),
+            403: __('You are not allowed to do that.'),
+            419: __('Your session has expired. Reload the page and try again.'),
+            429: __('Too many requests. Wait a moment and try again.'),
+        };
     }
 }
 
