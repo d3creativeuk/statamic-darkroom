@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Assets\Destinations;
 use D3Creative\Darkroom\Generations\BatchPresenter;
 use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\History\SavedImages;
+use D3Creative\Darkroom\History\Trash;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use D3Creative\Darkroom\Prompts\PromptStore;
@@ -36,8 +37,14 @@ class DarkroomController extends CpController
         BatchPresenter $presenter,
         SavedImages $history,
         UsageLog $usage,
+        Trash $trash,
     ) {
         $batches->prune();
+
+        // As with batches, a site without the scheduler still has its trash
+        // emptied whenever the page is opened. Content is only read when
+        // something has actually expired.
+        $trash->purge();
 
         $user = User::current();
         $config = config('statamic-darkroom');
@@ -77,6 +84,8 @@ class DarkroomController extends CpController
             'instructions' => $instructions->all(),
             'batches' => array_map([$presenter, 'present'], $batches->openFor((string) $user->id())),
             'history' => $history->page($user),
+            'trash' => $trash->list($user),
+            'trashDays' => $trash->retentionDays(),
             'usage' => $usage->months(user: UsageLog::scopeFor($user)),
             'usageIsEveryones' => UsageLog::scopeFor($user) === null,
             'urls' => [
@@ -86,6 +95,11 @@ class DarkroomController extends CpController
                 'prompts' => cp_route('darkroom.prompts.store'),
                 'instructions' => cp_route('darkroom.instructions.store'),
                 'history' => cp_route('darkroom.history.index'),
+                'forget' => cp_route('darkroom.history.forget'),
+                'trash' => cp_route('darkroom.trash.index'),
+                'restore' => cp_route('darkroom.trash.restore'),
+                'destroy' => cp_route('darkroom.trash.destroy'),
+                'usages' => cp_route('darkroom.usages'),
                 'usage' => cp_route('darkroom.usage.index'),
             ],
         ]);

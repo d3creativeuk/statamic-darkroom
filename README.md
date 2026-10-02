@@ -82,6 +82,16 @@ Once an image is saved it moves to the **History** tab: every image Darkroom has
 
 The history is not a separate log. The prompt and settings are stored on the asset itself, under a `darkroom` key in its metadata. So the history follows your assets wherever they are synced, editing an asset later keeps it, and deleting an asset removes it from the list. You only see images from containers you are allowed to view.
 
+### Trash
+
+Tick images in History, using the checkbox on each card or **Select all on this page**, then **Move to Trash**. A **Trash** tab appears while it has anything in it, listing what was removed, when, and when it will be deleted.
+
+Moving an image to Trash does not touch the asset. It stays in your asset library, at the same path, and keeps working wherever it is used, until it is deleted 30 days later. From the Trash tab you can **Restore** images to History, or **Delete forever** straight away.
+
+Before anything is moved or deleted, Darkroom checks whether the image is used on the site: in an Assets, Bard or Link field of any entry, term, global or user. If it is, you are told where, and when moving to Trash you can choose **Keep in asset library** instead: the asset stays in use and Darkroom just stops listing it. The 30-day clean-up never deletes an image that is still in use; it does the same and forgets it. Deleting a used image by hand asks first, and Statamic then removes it from those pages. Images written into templates or linked from other sites cannot be detected.
+
+Moving to Trash needs permission to delete assets in that container, because that is where Trash leads. Restoring needs permission to edit them.
+
 ### Spend
 
 The **Spend** tab shows an estimated total for each month, broken down by model, with a list of every image behind it and its prompt. Alt text calls are included in the total and listed separately.
@@ -143,6 +153,7 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `encode.quality` | `90` | Compression used when converting to WebP |
 | `save.apply_source_preset` | `false` | Run the container's source preset on saved images |
 | `temp.retention_hours` | `24` | How long unsaved images are kept |
+| `trash.retention_days` | `30` | How long images wait in Trash before they are deleted |
 | `upscale.prompt` | see config | The instruction sent with an image when upscaling it |
 | `alt_text.model` | `gemini-3.5-flash-lite` | The text model that writes alt text. Also `DARKROOM_ALT_TEXT_MODEL` |
 | `alt_text.prompt` | see config | What that model is asked to write |
@@ -166,7 +177,8 @@ The spend log is kept separately in `storage/app/statamic-darkroom/usage/`, one 
 # Generate one real image to check your key and connection. This costs money.
 php artisan darkroom:smoke "a red bicycle" --model=gemini-3.1-flash-lite-image
 
-# Remove unsaved images older than the retention period.
+# Remove unsaved images older than the retention period, and delete anything
+# in Trash for longer than 30 days that is not used on the site.
 php artisan darkroom:prune
 ```
 
@@ -195,7 +207,7 @@ Darkroom leaves everything it made in place, so you choose what to keep:
 | API key | `GEMINI_API_KEY` in `.env`, plus any `DARKROOM_` variables | Something else uses the key |
 | Permission | `use darkroom` in `resources/users/roles.yaml` | Only there if you gave it to a role. It does nothing once Darkroom is gone |
 
-Images you saved stay in your asset library as ordinary assets. Each one keeps a `darkroom` entry in its metadata with the prompt and settings that made it. Nothing reads it without Darkroom, and if you reinstall, they appear in History again.
+Images you saved stay in your asset library as ordinary assets, including any in Trash, which are no longer deleted once Darkroom is gone. Each one keeps a `darkroom` entry in its metadata with the prompt and settings that made it. Nothing reads it without Darkroom, and if you reinstall, they appear in History or Trash again.
 
 ## Testing
 

@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Http\Controllers\HistoryController;
 use D3Creative\Darkroom\Http\Controllers\InstructionController;
 use D3Creative\Darkroom\Http\Controllers\ItemController;
 use D3Creative\Darkroom\Http\Controllers\PromptController;
+use D3Creative\Darkroom\Http\Controllers\TrashController;
 use D3Creative\Darkroom\Http\Controllers\UpscaleController;
 use D3Creative\Darkroom\Http\Controllers\UsageController;
 use Illuminate\Support\Facades\Route;
@@ -62,6 +63,31 @@ Route::middleware('can:use darkroom')->prefix('darkroom')->name('darkroom.')->gr
     Route::get('history', [HistoryController::class, 'index'])
         ->middleware('throttle:120,1,darkroom.history')
         ->name('history.index');
+
+    Route::get('trash', [TrashController::class, 'index'])
+        ->middleware('throttle:120,1,darkroom.trash')
+        ->name('trash.index');
+
+    Route::post('trash', [TrashController::class, 'move'])
+        ->middleware('throttle:60,1,darkroom.trash.move')
+        ->name('trash.move');
+
+    Route::post('trash/restore', [TrashController::class, 'restore'])
+        ->middleware('throttle:60,1,darkroom.trash.restore')
+        ->name('trash.restore');
+
+    Route::post('trash/destroy', [TrashController::class, 'destroy'])
+        ->middleware('throttle:60,1,darkroom.trash.destroy')
+        ->name('trash.destroy');
+
+    // Reads all the site's content, so it is asked for once per action.
+    Route::post('usages', [TrashController::class, 'usages'])
+        ->middleware('throttle:30,1,darkroom.usages')
+        ->name('usages');
+
+    Route::post('history/forget', [TrashController::class, 'forget'])
+        ->middleware('throttle:60,1,darkroom.forget')
+        ->name('history.forget');
 
     Route::get('usage', [UsageController::class, 'index'])
         ->middleware('throttle:120,1,darkroom.usage')

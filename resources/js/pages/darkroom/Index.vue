@@ -20,10 +20,12 @@ import ControlsBar from '../../components/ControlsBar.vue';
 import AssetViewer from '../../components/AssetViewer.vue';
 import FolderPicker from '../../components/FolderPicker.vue';
 import History from '../../components/History.vue';
+import RemovalDialog from '../../components/RemovalDialog.vue';
 import ResultsGrid from '../../components/ResultsGrid.vue';
 import SavedPrompts from '../../components/SavedPrompts.vue';
 import Spend from '../../components/Spend.vue';
 import SystemInstructions from '../../components/SystemInstructions.vue';
+import Trash from '../../components/Trash.vue';
 import UpscaleDialog from '../../components/UpscaleDialog.vue';
 import { qualityRank, usd } from '../../composables/format.js';
 import { useGeneration } from '../../composables/useGeneration.js';
@@ -40,6 +42,8 @@ const props = defineProps({
     instructions: { type: Array, required: true },
     batches: { type: Array, required: true },
     history: { type: Object, required: true },
+    trash: { type: Array, default: () => [] },
+    trashDays: { type: Number, default: 30 },
     usage: { type: Array, required: true },
     usageIsEveryones: { type: Boolean, default: false },
     urls: { type: Object, required: true },
@@ -79,6 +83,26 @@ const composer = ref(null);
 const tab = ref('history');
 const saved = reactive({ ...props.history, search: '', loading: false });
 const months = ref(props.usage);
+const binned = ref(props.trash);
+
+// The Trash tab only exists while something is in it, so emptying it moves
+// back to History.
+watch(
+    () => binned.value.length,
+    (count) => {
+        if (!count && tab.value === 'trash') {
+            tab.value = 'history';
+        }
+    },
+);
+
+async function refreshTrash() {
+    try {
+        binned.value = (await http('GET', props.urls.trash)).items;
+    } catch (e) {
+        // Stale until the next refresh, as with History.
+    }
+}
 
 function historyUrl(page, perPage) {
     const query = new URLSearchParams({ page, per_page: perPage });
@@ -316,6 +340,121 @@ function assetClosed() {
     viewing.value = null;
 
     refreshHistory();
+}
+
+// Moving to the trash and deleting for good. Both ask first where the images
+// are used, so nothing in use is removed without someone choosing that.
+const removal = reactive({ open: false, mode: 'trash', ids: [], used: [] });
+
+function nameOf(id) {
+    const item = [...saved.items, ...binned.value].find((candidate) => candidate.id === id);
+
+    return item?.basename ?? item?.path?.split('/').pop() ?? id;
+}
+
+async function usedAmong(ids) {
+    const { usages } = await http('POST', props.urls.usages, { assets: ids });
+
+    return ids.filter((id) => usages[id]?.length).map((id) => ({ id, name: nameOf(id), places: usages[id] }));
+}
+
+/**
+ * Run one of the trash endpoints and report what happened. Anything the user
+ * may not touch comes back refused rather than failing the rest.
+ */
+async function runRemoval(url, ids, done) {
+    if (!ids.length) {
+        return;
+    }
+
+    const result = await http('POST', url, { assets: ids });
+
+    if (result.done.length) {
+        Statamic.$toast.success(done(result.done.length));
+    }
+
+    if (result.refused.length) {
+        Statamic.$toast.error(
+            result.refused.length === 1
+                ? __('1 image was left as it was. You may not have permission to change it.')
+                : __(':n images were left as they were. You may not have permission to change them.', { n: result.refused.length }),
+        );
+    }
+}
+
+const moved = (n) => (n === 1 ? __('Moved 1 image to Trash.') : __('Moved :n images to Trash.', { n }));
+
+async function trashImages(ids) {
+    acting.value = true;
+
+    try {
+        const used = await usedAmong(ids);
+
+        if (used.length) {
+            Object.assign(removal, { open: true, mode: 'trash', ids, used });
+
+            return;
+        }
+
+        await runRemoval(props.urls.trash, ids, moved);
+        await Promise.all([refreshHistory(), refreshTrash()]);
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+    } finally {
+        acting.value = false;
+    }
+}
+
+async function destroyImages(ids) {
+    acting.value = true;
+
+    try {
+        Object.assign(removal, { open: true, mode: 'destroy', ids, used: await usedAmong(ids) });
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+    } finally {
+        acting.value = false;
+    }
+}
+
+async function restoreImages(ids) {
+    acting.value = true;
+
+    try {
+        await runRemoval(props.urls.restore, ids, (n) => (n === 1 ? __('Restored 1 image to History.') : __('Restored :n images to History.', { n })));
+        await Promise.all([refreshHistory(), refreshTrash()]);
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+    } finally {
+        acting.value = false;
+    }
+}
+
+async function removalChosen(choice) {
+    const { mode, ids, used } = removal;
+    const usedIds = used.map((image) => image.id);
+
+    removal.open = false;
+    acting.value = true;
+
+    try {
+        if (mode === 'destroy') {
+            await runRemoval(props.urls.destroy, ids, (n) => (n === 1 ? __('Deleted 1 image.') : __('Deleted :n images.', { n })));
+        } else if (choice === 'keep') {
+            await runRemoval(props.urls.forget, usedIds, (n) =>
+                n === 1 ? __('Kept 1 image in the asset library. Darkroom no longer lists it.') : __('Kept :n images in the asset library. Darkroom no longer lists them.', { n }),
+            );
+            await runRemoval(props.urls.trash, ids.filter((id) => !usedIds.includes(id)), moved);
+        } else {
+            await runRemoval(props.urls.trash, ids, moved);
+        }
+
+        await Promise.all([refreshHistory(), refreshTrash()]);
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+    } finally {
+        acting.value = false;
+    }
 }
 
 // Images waiting on a folder. Where to save is chosen at save time, in
@@ -595,6 +734,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             <TabList>
                 <TabTrigger name="history" :text="saved.all ? __('History (:n)', { n: saved.all }) : __('History')" />
                 <TabTrigger name="spend" :text="__('Spend')" />
+                <TabTrigger v-if="binned.length" name="trash" :text="__('Trash (:n)', { n: binned.length })" />
             </TabList>
 
             <TabContent name="history">
@@ -605,14 +745,21 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         :all="saved.all"
                         :meta="saved.meta"
                         :loading="saved.loading"
-                        :disabled="!ready || generating || submitting"
+                        :disabled="!ready || generating || submitting || acting"
                         :can-upscale="canUpscale"
                         @reuse="reuse"
                         @open="openAsset"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
                         @page="historyPage"
                         @per-page="historyPerPage"
+                        @trash="trashImages"
                     />
+                </Card>
+            </TabContent>
+
+            <TabContent v-if="binned.length" name="trash">
+                <Card class="dr-archive-card">
+                    <Trash :items="binned" :days="trashDays" :disabled="acting" @restore="restoreImages" @destroy="destroyImages" />
                 </Card>
             </TabContent>
 
@@ -624,6 +771,15 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
         </Tabs>
 
         <AssetViewer :containers="containers" :asset="viewing" @closed="assetClosed" />
+
+        <RemovalDialog
+            v-model:open="removal.open"
+            :mode="removal.mode"
+            :count="removal.ids.length"
+            :used="removal.used"
+            :days="trashDays"
+            @choose="removalChosen"
+        />
 
         <FolderPicker
             v-model:open="picker.open"

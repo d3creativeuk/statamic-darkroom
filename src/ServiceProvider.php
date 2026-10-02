@@ -9,6 +9,8 @@ use D3Creative\Darkroom\Api\InteractionsClient;
 use D3Creative\Darkroom\Assets\AssetSaver;
 use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\History\SavedImages;
+use D3Creative\Darkroom\History\Trash;
+use D3Creative\Darkroom\History\Usages;
 use D3Creative\Darkroom\Imaging\ImageEncoder;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
@@ -48,6 +50,7 @@ class ServiceProvider extends AddonServiceProvider
         $this->app->bind(UsageLog::class, fn () => new UsageLog($config()));
         $this->app->bind(AltTextWriter::class, fn () => new AltTextWriter($config()));
         $this->app->bind(SavedImages::class, fn ($app) => new SavedImages($app->make(ModelRegistry::class), $config()));
+        $this->app->bind(Trash::class, fn ($app) => new Trash($app->make(Usages::class), $config()));
     }
 
     public function bootAddon()

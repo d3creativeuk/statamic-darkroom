@@ -293,11 +293,20 @@ return [
     | same sizes as every other Control Panel listing (statamic.cp's
     | pagination_size and pagination_size_options).
     |
+    | Images taken out of History wait in the trash for "retention_days" and
+    | are then deleted, unless they are still used on the site, in which case
+    | Darkroom just stops listing them. Deleting from the Trash tab is
+    | immediate. The asset stays in place and keeps working until then.
+    |
     | The usage log records every image Google returns, saved or not, with its
     | list price at the time. It is kept outside the temporary storage above
     | so pruning never touches it.
     |
     */
+
+    'trash' => [
+        'retention_days' => 30,
+    ],
 
     'usage' => [
         'disk' => 'local',

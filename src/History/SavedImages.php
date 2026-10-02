@@ -15,7 +15,8 @@ use Statamic\Facades\Preference;
  * prompt and settings that produced it are written onto the asset itself
  * under a "darkroom" key, and this simply finds the assets that have one. So
  * the history follows the assets wherever they are synced, and deleting an
- * asset removes it from the list.
+ * asset removes it from the list. Moving one to the trash marks it on the asset
+ * in the same way (see Trash).
  */
 class SavedImages
 {
@@ -69,7 +70,10 @@ class SavedImages
         // the user may look at is asked in turn and the results merged.
         $all = AssetContainer::all()
             ->filter(fn ($container) => $user && Gate::forUser($user)->allows('view', $container))
-            ->flatMap(fn ($container) => $container->queryAssets()->whereNotNull(self::KEY)->get()->all());
+            ->flatMap(fn ($container) => $container->queryAssets()->whereNotNull(self::KEY)->get()->all())
+            // Trashed images are listed in the Trash tab instead.
+            ->reject(fn (AssetContract $asset) => Trash::isTrashed($asset))
+            ->values();
 
         $assets = $all
             ->when($search !== '', fn ($assets) => $assets->filter(fn (AssetContract $asset) => $this->matches($asset, $search)))
