@@ -6,6 +6,12 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
 (`composer.json` carries no `version` field).
 
+## [1.0.1] - 2026-10-02
+
+### Changed
+
+- The README no longer has a Testing section. Running the test suite is only needed to work on Darkroom itself.
+
 ## [1.0.0] - 2026-10-02
 
 First release.
