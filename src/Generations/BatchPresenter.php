@@ -35,6 +35,12 @@ class BatchPresenter
                 : null,
             // The notes, when this batch is a changed version of an existing image.
             'revision' => ($batch['kind'] ?? null) === 'revise' ? ($batch['revision'] ?? null) : null,
+            // Which thread a revision belongs to, and how many rounds led to it.
+            'thread' => ($thread = BatchStore::threadOf($batch)) ? [
+                'id' => $thread,
+                'parent' => $batch['thread']['parent'] ?? null,
+                'depth' => count($batch['thread']['ancestors'] ?? []) + 1,
+            ] : null,
             'aspectRatio' => $batch['aspect_ratio'],
             'fileType' => $batch['file_type'],
             'container' => $batch['container'],

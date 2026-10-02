@@ -104,7 +104,11 @@ export function useGeneration({ initial, url, upscaleUrl, reviseUrl, interval, o
     }
 
     async function revise(payload) {
-        put(await http('POST', reviseUrl, payload));
+        const batch = await http('POST', reviseUrl, payload);
+
+        put(batch);
+
+        return batch;
     }
 
     async function save(item, draft) {
@@ -128,5 +132,5 @@ export function useGeneration({ initial, url, upscaleUrl, reviseUrl, interval, o
     onMounted(schedule);
     onBeforeUnmount(() => clearInterval(timer));
 
-    return { batches, generating, generate, upscale, revise, save, retry, discard, discardBatch };
+    return { batches, generating, put, generate, upscale, revise, save, retry, discard, discardBatch };
 }

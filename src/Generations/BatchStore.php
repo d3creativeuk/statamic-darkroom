@@ -189,10 +189,32 @@ class BatchStore
     {
         $open = [];
 
+        // A revision thread shows as one batch: its newest round that was not
+        // discarded or failed, and nothing once that round is saved, because
+        // it is in History then. Batches come newest first, so the first
+        // round that settles a thread decides it.
+        $settled = [];
+
         foreach ($this->ids() as $id) {
             $batch = $this->find($id);
 
-            if ($batch && ($batch['user'] ?? null) === $userId && $this->has($batch, fn (ItemStatus $s) => $s->isOpen())) {
+            if (! $batch || ($batch['user'] ?? null) !== $userId) {
+                continue;
+            }
+
+            if ($thread = self::threadOf($batch)) {
+                $status = $batch['items'][0]['status'] ?? null;
+
+                if (isset($settled[$thread]) || in_array($status, [ItemStatus::Discarded->value, ItemStatus::Failed->value], true)) {
+                    continue;
+                }
+
+                $settled[$thread] = true;
+
+                if ($status !== ItemStatus::Saved->value) {
+                    $open[] = $batch;
+                }
+            } elseif ($this->has($batch, fn (ItemStatus $s) => $s->isOpen())) {
                 $open[] = $batch;
             }
 
@@ -202,6 +224,43 @@ class BatchStore
         }
 
         return $open;
+    }
+
+    /**
+     * Every round of a revision thread this user still has in temporary
+     * storage, whatever its status, oldest first.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function threadFor(string $userId, string $threadId): array
+    {
+        if (! self::validId($threadId)) {
+            return [];
+        }
+
+        $rounds = [];
+
+        foreach ($this->ids() as $id) {
+            $batch = $this->find($id);
+
+            if ($batch && ($batch['user'] ?? null) === $userId && self::threadOf($batch) === $threadId) {
+                $rounds[] = $batch;
+            }
+        }
+
+        return array_reverse($rounds);
+    }
+
+    /**
+     * The revision thread a batch is a round of, if it is one.
+     *
+     * @param  array<string, mixed>  $batch
+     */
+    public static function threadOf(array $batch): ?string
+    {
+        $id = $batch['thread']['id'] ?? null;
+
+        return ($batch['kind'] ?? null) === 'revise' && is_string($id) && self::validId($id) ? $id : null;
     }
 
     /**

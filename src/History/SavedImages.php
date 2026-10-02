@@ -2,6 +2,7 @@
 
 namespace D3Creative\Darkroom\History;
 
+use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use Illuminate\Support\Facades\Gate;
 use Statamic\Contracts\Assets\Asset as AssetContract;
@@ -33,7 +34,7 @@ class SavedImages
      * @param  array<string, mixed>  $batch
      * @return array<string, mixed>
      */
-    public static function stamp(array $batch): array
+    public static function stamp(array $batch, ?array $thread = null): array
     {
         return array_filter([
             'prompt' => $batch['prompt'] ?? null,
@@ -44,6 +45,8 @@ class SavedImages
             'instruction_title' => $batch['instruction_title'] ?? null,
             'upscaled_from' => $batch['upscaled_from'] ?? null,
             'revision' => ($batch['kind'] ?? null) === 'revise' ? ($batch['revision'] ?? null) : null,
+            // The line of rounds that made a revised image (see Threads).
+            'thread' => $thread,
             'generated_at' => $batch['created_at'] ?? null,
             'user' => $batch['user'] ?? null,
         ], fn ($value) => $value !== null);
@@ -164,6 +167,8 @@ class SavedImages
             'qualityLabel' => ModelRegistry::qualityLabel($stamp['quality'] ?? null),
             'upscaledFrom' => ModelRegistry::qualityLabel($stamp['upscaled_from'] ?? null),
             'revision' => $stamp['revision'] ?? null,
+            'thread' => is_string($stamp['thread']['id'] ?? null) && BatchStore::validId($stamp['thread']['id']) ? $stamp['thread']['id'] : null,
+            'rounds' => is_array($stamp['thread']['rounds'] ?? null) ? count($stamp['thread']['rounds']) : 0,
             // Large enough to pin notes on, which core's thumbnails are not.
             'preview' => cp_route('darkroom.assets.preview', ['asset' => $asset->id()]),
             'aspectRatio' => $stamp['aspect_ratio'] ?? null,

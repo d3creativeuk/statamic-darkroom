@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Assets\AssetSaver;
 use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Generations\ItemStatus;
 use D3Creative\Darkroom\History\SavedImages;
+use D3Creative\Darkroom\Revisions\Threads;
 use D3Creative\Darkroom\Support\Runtime;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Validation\ValidationException;
@@ -31,7 +32,7 @@ class SaveItem
         public ?string $folder = null,
     ) {}
 
-    public function handle(BatchStore $store, AssetSaver $saver): void
+    public function handle(BatchStore $store, AssetSaver $saver, Threads $threads): void
     {
         $batch = $store->find($this->batchId);
         $item = $store->item($this->batchId, $this->index);
@@ -56,7 +57,7 @@ class SaveItem
                 $this->alt,
                 // The prompt and settings travel with the asset. That is what
                 // the History tab reads, and what lets a prompt be reused.
-                [SavedImages::KEY => SavedImages::stamp($batch)],
+                [SavedImages::KEY => SavedImages::stamp($batch, $threads->trail($batch, $item))],
             );
 
             $store->updateItem($this->batchId, $this->index, [

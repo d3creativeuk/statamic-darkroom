@@ -31,6 +31,11 @@ Route::middleware('can:use darkroom')->prefix('darkroom')->name('darkroom.')->gr
         ->middleware('throttle:20,1,darkroom.revise')
         ->name('revisions.store');
 
+    Route::get('threads/{thread}', [RevisionController::class, 'thread'])
+        ->where('thread', '[0-9a-z]{26}')
+        ->middleware('throttle:60,1,darkroom.threads')
+        ->name('threads.show');
+
     Route::get('assets/preview', [RevisionController::class, 'preview'])
         ->middleware('throttle:120,1,darkroom.asset-preview')
         ->name('assets.preview');

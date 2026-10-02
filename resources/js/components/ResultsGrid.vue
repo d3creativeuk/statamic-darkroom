@@ -12,7 +12,7 @@ const props = defineProps({
     canRevise: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['save', 'save-all', 'retry', 'discard', 'discard-batch', 'upscale', 'revise', 'spent']);
+const emit = defineEmits(['save', 'save-all', 'retry', 'discard', 'discard-batch', 'upscale', 'revise', 'thread', 'spent']);
 
 // What has been typed into each card. Kept here rather than in the card so it
 // survives the batch being replaced by a fresh copy on every status check.
@@ -82,6 +82,10 @@ function saveAll() {
             </div>
 
             <div class="dr-batch-actions">
+                <!-- A round of a revision thread: the earlier rounds are in the feed. -->
+                <Button v-if="batch.thread" size="sm" icon="history" @click="emit('thread')">
+                    {{ __('Revisions (:n)', { n: batch.thread.depth }) }}
+                </Button>
                 <Button v-if="unsaved.length > 1" size="sm" :disabled="busy" @click="saveAll">
                     {{ __('Save all :n', { n: unsaved.length }) }}
                 </Button>

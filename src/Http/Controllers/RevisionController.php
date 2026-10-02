@@ -10,6 +10,7 @@ use D3Creative\Darkroom\Imaging\ImageEncoder;
 use D3Creative\Darkroom\Jobs\GenerateBatch;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use D3Creative\Darkroom\Revisions\RevisionPrompt;
+use D3Creative\Darkroom\Revisions\Threads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -36,6 +37,7 @@ class RevisionController extends CpController
         Destinations $destinations,
         BatchStore $store,
         BatchPresenter $presenter,
+        Threads $threads,
     ) {
         $config = config('statamic-darkroom');
         $user = User::current();
@@ -105,6 +107,8 @@ class RevisionController extends CpController
             'instruction_id' => $source['instruction_id'] ?? null,
             'instruction_title' => $source['instruction_title'] ?? null,
             'revision' => ['notes' => $notes, 'general' => $general !== '' ? $general : null],
+            // The rounds this one follows on from, so the feed can show them.
+            'thread' => $threads->next($source),
             'source_mime' => $source['mime'],
         ], fn ($value) => $value !== null), 1);
 
@@ -113,6 +117,28 @@ class RevisionController extends CpController
         GenerateBatch::dispatchAfterResponse($batch['id']);
 
         return response()->json($presenter->present($batch), 201);
+    }
+
+    /**
+     * Every round of a thread, for the Revise panel's feed. Opened from a
+     * saved image, the rounds stamped on it are included.
+     */
+    public function thread(Request $request, string $thread, Threads $threads)
+    {
+        $asset = null;
+
+        if ($request->filled('asset')) {
+            $asset = Asset::find((string) $request->query('asset'));
+
+            abort_unless($asset, 404);
+            abort_unless(Gate::forUser(User::current())->allows('view', $asset), 403);
+        }
+
+        $feed = $threads->feed(User::current(), $thread, $asset);
+
+        abort_unless($feed, 404);
+
+        return response()->json($feed);
     }
 
     /**

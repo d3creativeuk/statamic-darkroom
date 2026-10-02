@@ -45,6 +45,8 @@ trait FindsSourceImages
             'folder' => $batch['folder'] ?? '',
             'instruction_id' => $batch['instruction_id'] ?? null,
             'instruction_title' => $batch['instruction_title'] ?? null,
+            // Where it came from, so a revision can join its thread.
+            'base' => ['batch' => $batch, 'item' => $item],
         ];
     }
 
@@ -80,6 +82,8 @@ trait FindsSourceImages
             'folder' => trim((string) $asset->folder(), '/.'),
             'instruction_id' => $stamp['instruction'] ?? null,
             'instruction_title' => $stamp['instruction_title'] ?? null,
+            'asset' => $asset,
+            'stamp' => $stamp,
         ];
     }
 }

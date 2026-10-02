@@ -21,7 +21,7 @@ import AssetViewer from '../../components/AssetViewer.vue';
 import FolderPicker from '../../components/FolderPicker.vue';
 import History from '../../components/History.vue';
 import RemovalDialog from '../../components/RemovalDialog.vue';
-import ReviseEditor from '../../components/ReviseEditor.vue';
+import RevisionThread from '../../components/RevisionThread.vue';
 import ResultsGrid from '../../components/ResultsGrid.vue';
 import SavedPrompts from '../../components/SavedPrompts.vue';
 import Spend from '../../components/Spend.vue';
@@ -30,6 +30,7 @@ import Trash from '../../components/Trash.vue';
 import UpscaleDialog from '../../components/UpscaleDialog.vue';
 import { qualityRank, usd } from '../../composables/format.js';
 import { useGeneration } from '../../composables/useGeneration.js';
+import { useRevisions } from '../../composables/useRevisions.js';
 import { http } from '../../composables/useHttp.js';
 
 const props = defineProps({
@@ -178,7 +179,7 @@ async function refreshUsage() {
     }
 }
 
-const { batches, generating, generate, upscale, revise, save, retry, discard, discardBatch } = useGeneration({
+const { batches, generating, put, generate, upscale, revise, save, retry, discard, discardBatch } = useGeneration({
     initial: props.batches,
     url: props.urls.batches,
     upscaleUrl: props.urls.upscales,
@@ -500,30 +501,84 @@ function askToUpscale(source, target) {
     upscaling.open = true;
 }
 
-// The image being revised, and where the revision should come from: an
-// unsaved image ({ batch, index }) or a saved one ({ asset }).
-const revising = reactive({ open: false, source: null, target: null });
+// The Revise panel and the thread of rounds it is working through.
+const revisions = useRevisions({ batches, put, revise, urls: props.urls });
 
-function askToRevise(source, target) {
-    revising.source = source;
-    revising.target = target;
-    revising.open = true;
+// The working area: one card per revision thread, its newest round that was
+// not discarded or failed, and none once that round is saved (it is in
+// History then). Everything else shows as it is, newest first.
+const working = computed(() => {
+    const settled = new Set();
+
+    return [...batches.value]
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .filter((batch) => {
+            const thread = batch.thread?.id;
+
+            if (!thread) {
+                return true;
+            }
+
+            const status = batch.items[0]?.status;
+
+            if (settled.has(thread) || ['discarded', 'failed'].includes(status)) {
+                return false;
+            }
+
+            settled.add(thread);
+
+            return status !== 'saved';
+        });
+});
+
+function imageBase(batch, item) {
+    return {
+        key: batch.thread ? `round:${batch.id}` : 'origin',
+        name: item.filename,
+        image: item.status === 'complete' ? item.urls.preview : null,
+        model: batch.model,
+        quality: batch.quality,
+        aspectRatio: batch.aspectRatio,
+        target: item.status === 'complete' ? { batch: batch.id, index: item.index } : null,
+    };
 }
 
-async function confirmRevise(changes) {
-    revising.open = false;
+function reviseImage(batch, item = batch.items[0]) {
+    revisions.open({ base: imageBase(batch, item), threadId: batch.thread?.id ?? null });
+}
+
+function reviseSaved(item) {
+    revisions.open({
+        base: {
+            key: 'asset',
+            name: item.path.split('/').pop(),
+            image: item.preview,
+            model: item.model,
+            quality: item.quality,
+            aspectRatio: item.aspectRatio,
+            target: { asset: item.id },
+        },
+        threadId: item.thread ?? null,
+        asset: item.thread ? item.id : null,
+    });
+}
+
+async function sendRound(changes) {
     submitting.value = true;
 
     try {
-        await revise({ ...revising.target, ...changes });
-
-        // The new image appears in the working area at the top of the results.
-        composer.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        await revisions.send(changes);
     } catch (e) {
         Statamic.$toast.error(e.message);
     } finally {
         submitting.value = false;
     }
+}
+
+// Saving from the feed uses the image's suggested filename; the card in the
+// working area is there for choosing a name and writing alt text first.
+function saveRound(round) {
+    chooseFolder([[round.item, { filename: round.item.filename, alt: '', file_type: round.batch.fileType }]]);
 }
 
 async function confirmUpscale(choice) {
@@ -743,7 +798,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
         </div>
 
         <ResultsGrid
-            v-for="batch in batches"
+            v-for="batch in working"
             :key="batch.id"
             :batch="batch"
             :file-types="fileTypes"
@@ -751,13 +806,8 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :can-upscale="ready && !generating && !submitting && canUpscale(batch.quality)"
             :can-revise="ready && !generating && !submitting"
             @upscale="(item) => askToUpscale({ quality: batch.quality, model: batch.model, aspectRatio: batch.aspectRatio }, { batch: batch.id, index: item.index })"
-            @revise="
-                (item) =>
-                    askToRevise(
-                        { image: item.urls.preview, name: item.filename, quality: batch.quality, model: batch.model, aspectRatio: batch.aspectRatio },
-                        { batch: batch.id, index: item.index },
-                    )
-            "
+            @revise="(item) => reviseImage(batch, item)"
+            @thread="reviseImage(batch)"
             @spent="refreshUsage"
             @save="(item, draft) => chooseFolder([[item, draft]])"
             @save-all="chooseFolder"
@@ -786,13 +836,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         @reuse="reuse"
                         @open="openAsset"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
-                        @revise="
-                            (item) =>
-                                askToRevise(
-                                    { image: item.preview, name: item.path.split('/').pop(), quality: item.quality, model: item.model, aspectRatio: item.aspectRatio },
-                                    { asset: item.id },
-                                )
-                        "
+                        @revise="reviseSaved"
                         @page="historyPage"
                         @per-page="historyPerPage"
                         @trash="trashImages"
@@ -834,12 +878,21 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             @choose="saveTo"
         />
 
-        <ReviseEditor
-            v-model:open="revising.open"
+        <RevisionThread
+            v-model:open="revisions.state.open"
             :models="models"
-            :source="revising.source"
+            :base="revisions.state.base"
+            :origin="revisions.state.origin"
+            :prompt="revisions.state.prompt"
+            :rounds="revisions.rounds.value"
+            :loading="revisions.state.loading"
+            :busy="generating || submitting || acting || revisions.busy.value"
             :preferred="defaults.model"
-            @confirm="confirmRevise"
+            @send="sendRound"
+            @choose="revisions.choose"
+            @save="saveRound"
+            @discard="(round) => act(discard, round.item)"
+            @retry="(round) => act(retry, round.item)"
         />
 
         <UpscaleDialog
