@@ -9,6 +9,7 @@ use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Generations\ItemStatus;
 use D3Creative\Darkroom\Imaging\ImageEncoder;
 use D3Creative\Darkroom\Models\ModelRegistry;
+use D3Creative\Darkroom\Revisions\RevisionPrompt;
 use D3Creative\Darkroom\Support\Runtime;
 use D3Creative\Darkroom\Usage\UsageLog;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -42,16 +43,23 @@ class GenerateBatch
 
         Runtime::extend($config, (int) ($config['retry']['deadline'] ?? 300) + 120);
 
-        // An upscale sends the source image with a fixed prompt in place of the
-        // user's. The batch still carries the original prompt, so History and
-        // "Reuse prompt" show what the image is of, not how it was enlarged.
-        $upscaling = ($batch['kind'] ?? null) === 'upscale';
+        // An upscale or a revision sends the source image with its own prompt
+        // in place of the user's: a fixed one to enlarge it, or the notes to
+        // change it. The batch still carries the original prompt, so History
+        // and "Reuse prompt" show what the image is of. Neither sends the
+        // system instruction: the image already carries the style.
+        $kind = $batch['kind'] ?? null;
+        $upscaling = $kind === 'upscale';
+        $revising = $kind === 'revise';
+        $fromSource = $upscaling || $revising;
         $prompt = $batch['prompt'];
         $instruction = $batch['instruction_text'] ?? null;
         $references = [];
 
-        if ($upscaling) {
-            $prompt = (string) ($config['upscale']['prompt'] ?? 'Reproduce this exact image at a higher resolution.');
+        if ($fromSource) {
+            $prompt = $revising
+                ? RevisionPrompt::build((array) ($batch['revision'] ?? []), $config)
+                : (string) ($config['upscale']['prompt'] ?? 'Reproduce this exact image at a higher resolution.');
             $instruction = null;
 
             if ($source = $store->source($this->batchId)) {
@@ -70,8 +78,8 @@ class GenerateBatch
                 continue;
             }
 
-            if ($upscaling && $references === []) {
-                $this->failWith($store, $item['index'], 'source_missing', 'The image to upscale is no longer available.', false);
+            if ($fromSource && $references === []) {
+                $this->failWith($store, $item['index'], 'source_missing', $revising ? 'The image to revise is no longer available.' : 'The image to upscale is no longer available.', false);
 
                 continue;
             }
@@ -95,7 +103,7 @@ class GenerateBatch
         $settled = [];
 
         try {
-            $generator->generateMany($requests, function (string $event, $index, $payload) use ($store, $encoder, $models, $usage, $config, $batch, $upscaling, &$settled) {
+            $generator->generateMany($requests, function (string $event, $index, $payload) use ($store, $encoder, $models, $usage, $config, $batch, $upscaling, $revising, &$settled) {
                 if ($event === 'attempt') {
                     $store->updateItem($this->batchId, $index, ['attempts' => $payload]);
                 }
@@ -123,7 +131,7 @@ class GenerateBatch
                         'quality' => $batch['quality'],
                         'aspect_ratio' => $batch['aspect_ratio'],
                         'price' => $models->price($batch['model'], $batch['quality']),
-                        'prompt' => ($upscaling ? 'Upscale: ' : '').$batch['prompt'],
+                        'prompt' => ($upscaling ? 'Upscale: ' : ($revising ? 'Revise: ' : '')).$batch['prompt'],
                     ]);
 
                     $this->complete($store, $encoder, $config, $index, $payload);

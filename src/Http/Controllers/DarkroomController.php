@@ -91,6 +91,7 @@ class DarkroomController extends CpController
             'urls' => [
                 'batches' => cp_route('darkroom.batches.store'),
                 'upscales' => cp_route('darkroom.upscales.store'),
+                'revisions' => cp_route('darkroom.revisions.store'),
                 'folders' => cp_route('darkroom.folders', '__container__'),
                 'prompts' => cp_route('darkroom.prompts.store'),
                 'instructions' => cp_route('darkroom.instructions.store'),

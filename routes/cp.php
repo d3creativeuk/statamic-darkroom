@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Http\Controllers\HistoryController;
 use D3Creative\Darkroom\Http\Controllers\InstructionController;
 use D3Creative\Darkroom\Http\Controllers\ItemController;
 use D3Creative\Darkroom\Http\Controllers\PromptController;
+use D3Creative\Darkroom\Http\Controllers\RevisionController;
 use D3Creative\Darkroom\Http\Controllers\TrashController;
 use D3Creative\Darkroom\Http\Controllers\UpscaleController;
 use D3Creative\Darkroom\Http\Controllers\UsageController;
@@ -25,6 +26,14 @@ Route::middleware('can:use darkroom')->prefix('darkroom')->name('darkroom.')->gr
     Route::post('upscales', [UpscaleController::class, 'store'])
         ->middleware('throttle:20,1,darkroom.upscale')
         ->name('upscales.store');
+
+    Route::post('revisions', [RevisionController::class, 'store'])
+        ->middleware('throttle:20,1,darkroom.revise')
+        ->name('revisions.store');
+
+    Route::get('assets/preview', [RevisionController::class, 'preview'])
+        ->middleware('throttle:120,1,darkroom.asset-preview')
+        ->name('assets.preview');
 
     Route::prefix('batches/{id}')->where(['id' => '[0-9a-z]{26}', 'index' => '[0-9]+'])->group(function () {
         Route::get('/', [BatchController::class, 'show'])

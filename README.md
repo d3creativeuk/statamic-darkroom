@@ -78,6 +78,16 @@ Two things to know:
 
 The system instruction is not sent with an upscale. The image already carries the style.
 
+### Revising with notes
+
+When an image is nearly right, **Revise** lets you say what to change and where. It is on every unsaved image and on every image in History.
+
+Click the image to pin a numbered note to a spot, then write what to change there: "remove this door" on the door, "add a cityscape here" on an empty patch of background. Add as many as ten. There is also an optional note for the whole image, for things like "warmer light". Choose the model and size, with the price shown, and send it.
+
+The image goes back to the model with your notes, each one saying where it applies (for example "at about 74% from the left and 81% from the top"). The result appears as a new image to preview and save; the one it came from is left alone. When saved, it keeps the original prompt and style, and History marks it **Revised**.
+
+Like upscaling it is a redraw, so expect small differences elsewhere, and the model may tidy up things that belonged to what you removed, such as an arrow pointing at it. If something must stay, say so in a note. Nano Banana Pro is the most faithful. The system instruction is not sent; the image already carries the style.
+
 ### History
 
 Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the date it was made, its size, and the model, aspect ratio and quality that made it. **Reuse prompt** puts the prompt and all of those settings back into the form. The search box finds images by any word in the prompt, filename, alt text or system instruction, so a folder name finds everything saved in it. It pages like the Assets listing, with the same **Per Page** menu, and remembers your choice as a user preference. Clicking an image opens Statamic's own asset editor over the page, so you can change alt text, set a focal point, crop or rename it without leaving Darkroom.
@@ -188,7 +198,7 @@ php artisan darkroom:prune
 
 - Google's documentation states that every generated image carries an invisible SynthID watermark. It cannot be turned off.
 - Your prompts and images are handled under Google's Gemini API terms, not by D3 Creative. Nothing is sent anywhere else.
-- Apart from upscaling, generating from a reference image is not supported yet.
+- Apart from upscaling and revising an image Darkroom made, generating from a reference image is not supported yet.
 
 ## Uninstalling
 

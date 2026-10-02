@@ -43,6 +43,7 @@ class SavedImages
             'instruction' => $batch['instruction_id'] ?? null,
             'instruction_title' => $batch['instruction_title'] ?? null,
             'upscaled_from' => $batch['upscaled_from'] ?? null,
+            'revision' => ($batch['kind'] ?? null) === 'revise' ? ($batch['revision'] ?? null) : null,
             'generated_at' => $batch['created_at'] ?? null,
             'user' => $batch['user'] ?? null,
         ], fn ($value) => $value !== null);
@@ -162,6 +163,9 @@ class SavedImages
             'quality' => $stamp['quality'] ?? null,
             'qualityLabel' => ModelRegistry::qualityLabel($stamp['quality'] ?? null),
             'upscaledFrom' => ModelRegistry::qualityLabel($stamp['upscaled_from'] ?? null),
+            'revision' => $stamp['revision'] ?? null,
+            // Large enough to pin notes on, which core's thumbnails are not.
+            'preview' => cp_route('darkroom.assets.preview', ['asset' => $asset->id()]),
             'aspectRatio' => $stamp['aspect_ratio'] ?? null,
             'instruction' => $stamp['instruction'] ?? null,
             'instructionTitle' => $stamp['instruction_title'] ?? null,

@@ -6,6 +6,12 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
 (`composer.json` carries no `version` field).
 
+## [Unreleased]
+
+### Added
+
+- **Revise.** Pin numbered notes to spots on an image ("remove this door", "add a cityscape here"), add an optional note for the whole image, and send it back to the model for a new version. Available on unsaved images and in History. The original is left alone, and a saved revision keeps the original prompt and style and is marked Revised in History.
+
 ## [1.0.1] - 2026-10-02
 
 ### Changed

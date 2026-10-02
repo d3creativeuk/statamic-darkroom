@@ -33,6 +33,8 @@ class BatchPresenter
             'upscaledFrom' => ($batch['kind'] ?? null) === 'upscale'
                 ? (ModelRegistry::qualityLabel($batch['upscaled_from'] ?? null) ?? true)
                 : null,
+            // The notes, when this batch is a changed version of an existing image.
+            'revision' => ($batch['kind'] ?? null) === 'revise' ? ($batch['revision'] ?? null) : null,
             'aspectRatio' => $batch['aspect_ratio'],
             'fileType' => $batch['file_type'],
             'container' => $batch['container'],
@@ -82,13 +84,18 @@ class BatchPresenter
     }
 
     /**
-     * An upscale is usually saved beside the image it came from, under the
-     * same prompt. Naming it after its size keeps the two apart.
+     * An upscale or a revision is usually saved beside the image it came
+     * from, under the same prompt. Naming it after its size, or as revised,
+     * keeps the two apart.
      *
      * @param  array<string, mixed>  $batch
      */
     public function suffix(array $batch): string
     {
-        return ($batch['kind'] ?? null) === 'upscale' ? '-'.strtolower((string) $batch['quality']) : '';
+        return match ($batch['kind'] ?? null) {
+            'upscale' => '-'.strtolower((string) $batch['quality']),
+            'revise' => '-revised',
+            default => '',
+        };
     }
 }

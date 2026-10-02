@@ -15,7 +15,7 @@ const props = defineProps({
     disabled: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['reuse', 'upscale', 'open', 'page', 'per-page', 'trash']);
+const emit = defineEmits(['reuse', 'upscale', 'revise', 'open', 'page', 'per-page', 'trash']);
 
 // Searches prompts, filenames, alt text and instruction titles. The page
 // does the fetching.
@@ -134,6 +134,7 @@ function trashSelected() {
                         <Badge v-if="item.upscaledFrom" size="sm" color="blue">
                             {{ __('Upscaled from :size', { size: item.upscaledFrom }) }}
                         </Badge>
+                        <Badge v-if="item.revision" size="sm" color="blue">{{ __('Revised') }}</Badge>
                         <Badge v-if="item.instructionTitle" size="sm" icon="ai-sparks">{{ item.instructionTitle }}</Badge>
                     </div>
 
@@ -144,6 +145,9 @@ function trashSelected() {
                         </Button>
                         <Button v-if="canUpscale(item.quality)" size="xs" :disabled="disabled" @click="emit('upscale', item)">
                             {{ __('Upscale') }}
+                        </Button>
+                        <Button size="xs" :disabled="disabled" @click="emit('revise', item)">
+                            {{ __('Revise') }}
                         </Button>
                     </ButtonGroup>
                 </div>

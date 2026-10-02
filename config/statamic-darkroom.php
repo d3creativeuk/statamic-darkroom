@@ -263,6 +263,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Revising
+    |--------------------------------------------------------------------------
+    |
+    | An image is revised by sending it back to the model with the notes pinned
+    | to it, numbered between these two sentences. Each note says where it
+    | applies as a share of the width and height, which in testing changed only
+    | what was asked. As with upscaling, the system instruction is not sent.
+    |
+    */
+
+    'revise' => [
+        'intro' => 'Edit this image. Make only these changes:',
+        'keep' => 'Keep everything else exactly as it is: the composition, subject, colours, textures and style.',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Alt text
     |--------------------------------------------------------------------------
     |

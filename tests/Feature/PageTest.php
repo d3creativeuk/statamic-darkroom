@@ -210,7 +210,7 @@ class PageTest extends TestCase
             }
         }
 
-        $this->assertCount(25, $buckets);
+        $this->assertCount(27, $buckets);
         $this->assertSame(array_values($buckets), array_values(array_unique($buckets)), 'Two routes share a throttle bucket.');
     }
 

@@ -11,7 +11,7 @@ const IN_PROGRESS = [...WAITING_ON_GOOGLE, 'saving'];
  * already been answered, so the page finds out by asking again. Polling runs
  * only while at least one image is in progress.
  */
-export function useGeneration({ initial, url, upscaleUrl, interval, onChange }) {
+export function useGeneration({ initial, url, upscaleUrl, reviseUrl, interval, onChange }) {
     const batches = ref(initial ?? []);
 
     let timer = null;
@@ -103,6 +103,10 @@ export function useGeneration({ initial, url, upscaleUrl, interval, onChange }) 
         put(await http('POST', upscaleUrl, payload));
     }
 
+    async function revise(payload) {
+        put(await http('POST', reviseUrl, payload));
+    }
+
     async function save(item, draft) {
         put(await http('POST', item.urls.save, draft));
     }
@@ -124,5 +128,5 @@ export function useGeneration({ initial, url, upscaleUrl, interval, onChange }) 
     onMounted(schedule);
     onBeforeUnmount(() => clearInterval(timer));
 
-    return { batches, generating, generate, upscale, save, retry, discard, discardBatch };
+    return { batches, generating, generate, upscale, revise, save, retry, discard, discardBatch };
 }

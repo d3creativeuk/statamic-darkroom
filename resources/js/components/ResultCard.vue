@@ -10,10 +10,12 @@ const props = defineProps({
     busy: { type: Boolean, default: false },
     // Whether any model can make this image larger than it is.
     canUpscale: { type: Boolean, default: false },
+    // Whether a new image can be started now, so it can be revised.
+    canRevise: { type: Boolean, default: false },
     writingAlt: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['save', 'retry', 'discard', 'upscale', 'alt']);
+const emit = defineEmits(['save', 'retry', 'discard', 'upscale', 'revise', 'alt']);
 
 const filename = defineModel('filename', { type: String });
 const alt = defineModel('alt', { type: String });
@@ -140,6 +142,14 @@ onBeforeUnmount(() => clearInterval(ticker));
                         @click="emit('upscale')"
                     >
                         {{ __('Upscale') }}
+                    </Button>
+                    <Button
+                        v-if="item.status === 'complete' && canRevise"
+                        size="sm"
+                        :disabled="busy"
+                        @click="emit('revise')"
+                    >
+                        {{ __('Revise') }}
                     </Button>
                     <Button
                         v-if="item.status === 'complete'"

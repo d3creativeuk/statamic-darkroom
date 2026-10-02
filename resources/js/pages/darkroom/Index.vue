@@ -21,6 +21,7 @@ import AssetViewer from '../../components/AssetViewer.vue';
 import FolderPicker from '../../components/FolderPicker.vue';
 import History from '../../components/History.vue';
 import RemovalDialog from '../../components/RemovalDialog.vue';
+import ReviseEditor from '../../components/ReviseEditor.vue';
 import ResultsGrid from '../../components/ResultsGrid.vue';
 import SavedPrompts from '../../components/SavedPrompts.vue';
 import Spend from '../../components/Spend.vue';
@@ -177,10 +178,11 @@ async function refreshUsage() {
     }
 }
 
-const { batches, generating, generate, upscale, save, retry, discard, discardBatch } = useGeneration({
+const { batches, generating, generate, upscale, revise, save, retry, discard, discardBatch } = useGeneration({
     initial: props.batches,
     url: props.urls.batches,
     upscaleUrl: props.urls.upscales,
+    reviseUrl: props.urls.revisions,
     interval: props.limits.pollInterval,
     onChange(item, before) {
         // Google charges when the image comes back, saved or not.
@@ -498,6 +500,32 @@ function askToUpscale(source, target) {
     upscaling.open = true;
 }
 
+// The image being revised, and where the revision should come from: an
+// unsaved image ({ batch, index }) or a saved one ({ asset }).
+const revising = reactive({ open: false, source: null, target: null });
+
+function askToRevise(source, target) {
+    revising.source = source;
+    revising.target = target;
+    revising.open = true;
+}
+
+async function confirmRevise(changes) {
+    revising.open = false;
+    submitting.value = true;
+
+    try {
+        await revise({ ...revising.target, ...changes });
+
+        // The new image appears in the working area at the top of the results.
+        composer.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+    } finally {
+        submitting.value = false;
+    }
+}
+
 async function confirmUpscale(choice) {
     upscaling.open = false;
     submitting.value = true;
@@ -721,7 +749,15 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :file-types="fileTypes"
             :busy="acting"
             :can-upscale="ready && !generating && !submitting && canUpscale(batch.quality)"
+            :can-revise="ready && !generating && !submitting"
             @upscale="(item) => askToUpscale({ quality: batch.quality, model: batch.model, aspectRatio: batch.aspectRatio }, { batch: batch.id, index: item.index })"
+            @revise="
+                (item) =>
+                    askToRevise(
+                        { image: item.urls.preview, name: item.filename, quality: batch.quality, model: batch.model, aspectRatio: batch.aspectRatio },
+                        { batch: batch.id, index: item.index },
+                    )
+            "
             @spent="refreshUsage"
             @save="(item, draft) => chooseFolder([[item, draft]])"
             @save-all="chooseFolder"
@@ -750,6 +786,13 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         @reuse="reuse"
                         @open="openAsset"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
+                        @revise="
+                            (item) =>
+                                askToRevise(
+                                    { image: item.preview, name: item.path.split('/').pop(), quality: item.quality, model: item.model, aspectRatio: item.aspectRatio },
+                                    { asset: item.id },
+                                )
+                        "
                         @page="historyPage"
                         @per-page="historyPerPage"
                         @trash="trashImages"
@@ -789,6 +832,14 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :count="picker.pending.length"
             :folders-url="urls.folders"
             @choose="saveTo"
+        />
+
+        <ReviseEditor
+            v-model:open="revising.open"
+            :models="models"
+            :source="revising.source"
+            :preferred="defaults.model"
+            @confirm="confirmRevise"
         />
 
         <UpscaleDialog

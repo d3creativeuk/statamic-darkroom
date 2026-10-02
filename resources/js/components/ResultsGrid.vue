@@ -9,9 +9,10 @@ const props = defineProps({
     fileTypes: { type: Array, required: true },
     busy: { type: Boolean, default: false },
     canUpscale: { type: Boolean, default: false },
+    canRevise: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['save', 'save-all', 'retry', 'discard', 'discard-batch', 'upscale', 'spent']);
+const emit = defineEmits(['save', 'save-all', 'retry', 'discard', 'discard-batch', 'upscale', 'revise', 'spent']);
 
 // What has been typed into each card. Kept here rather than in the card so it
 // survives the batch being replaced by a fresh copy on every status check.
@@ -75,6 +76,7 @@ function saveAll() {
                     <Badge v-if="batch.upscaledFrom" size="sm" color="blue">
                         {{ batch.upscaledFrom === true ? __('Upscaled') : __('Upscaled from :size', { size: batch.upscaledFrom }) }}
                     </Badge>
+                    <Badge v-if="batch.revision" size="sm" color="blue">{{ __('Revised') }}</Badge>
                     <Badge v-if="batch.instructionTitle" size="sm" icon="ai-sparks">{{ batch.instructionTitle }}</Badge>
                 </div>
             </div>
@@ -102,9 +104,11 @@ function saveAll() {
                     :file-types="fileTypes"
                     :busy="busy"
                     :can-upscale="canUpscale"
+                    :can-revise="canRevise"
                     :writing-alt="!!writing[item.index]"
                     @alt="writeAlt(item)"
                     @upscale="emit('upscale', item)"
+                    @revise="emit('revise', item)"
                     @save="emit('save', item, draft(item))"
                     @retry="emit('retry', item)"
                     @discard="emit('discard', item)"
