@@ -11,6 +11,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 ### Changed
 
 - The README no longer has a Testing section. Running the test suite is only needed to work on Darkroom itself.
+- The README lists the requirement as Statamic 6 rather than a point release. Composer still enforces the exact version.
 
 ## [1.0.0] - 2026-10-02
 
