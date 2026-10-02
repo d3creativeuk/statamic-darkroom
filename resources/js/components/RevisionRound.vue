@@ -82,7 +82,7 @@ onBeforeUnmount(() => clearInterval(ticker));
                 :aria-label="__('Revise from round :n', { n: round.number })"
                 @click="emit('choose')"
             >
-                <img :src="round.image" alt="" loading="lazy" />
+                <img :src="round.image" alt="" />
             </button>
             <div v-else-if="waiting" class="dr-round-placeholder" role="status">{{ __('Generating…') }} {{ elapsed }}s</div>
             <div v-else-if="round.status === 'failed'" class="dr-round-placeholder dr-round-placeholder--failed">

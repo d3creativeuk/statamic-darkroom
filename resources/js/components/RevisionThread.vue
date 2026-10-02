@@ -61,12 +61,32 @@ watch(
     { immediate: true },
 );
 
-// Keep the newest round in view as rounds arrive.
+// Keep the round being worked on in view: on opening, as the feed arrives,
+// as new rounds come in, and as their images load and push it down. Once
+// the feed has been scrolled by hand, it is left where it was put.
+const following = ref(true);
+
+function keepInView() {
+    if (!following.value || !feed.value) {
+        return;
+    }
+
+    const current = feed.value.querySelector('.is-current');
+
+    if (current) {
+        current.scrollIntoView({ block: 'nearest' });
+    } else {
+        feed.value.scrollTop = feed.value.scrollHeight;
+    }
+}
+
 watch(
-    () => props.rounds.length,
+    () => [open.value, props.rounds.length, props.base?.key],
     async () => {
+        following.value = true;
+
         await nextTick();
-        feed.value?.scrollTo({ top: feed.value.scrollHeight, behavior: 'smooth' });
+        keepInView();
     },
 );
 
@@ -153,7 +173,9 @@ function send() {
 </script>
 
 <template>
-    <Stack v-model:open="open" inset :show-close-button="false">
+    <!-- Full width: the image and the feed both need the room, and a narrower
+         panel runs off the edge of a phone. -->
+    <Stack v-model:open="open" size="full" inset :show-close-button="false">
         <div v-if="open && base" class="dr-thread">
             <div class="dr-thread-header">
                 <div class="dr-thread-title">
@@ -193,7 +215,14 @@ function send() {
                 </div>
 
                 <div class="dr-thread-side">
-                    <ol ref="feed" class="dr-thread-feed" :aria-busy="loading">
+                    <ol
+                        ref="feed"
+                        class="dr-thread-feed"
+                        :aria-busy="loading"
+                        @load.capture="keepInView"
+                        @wheel.passive="following = false"
+                        @touchmove.passive="following = false"
+                    >
                         <li v-if="origin" class="dr-thread-origin" :class="{ 'is-current': base.key === 'origin' }">
                             <button
                                 v-if="origin.image"

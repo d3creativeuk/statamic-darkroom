@@ -544,7 +544,7 @@ function imageBase(batch, item) {
 }
 
 function reviseImage(batch, item = batch.items[0]) {
-    revisions.open({ base: imageBase(batch, item), threadId: batch.thread?.id ?? null });
+    revisions.open({ base: imageBase(batch, item), threadId: batch.thread?.id ?? null, prompt: batch.prompt });
 }
 
 function reviseSaved(item) {
@@ -560,6 +560,7 @@ function reviseSaved(item) {
         },
         threadId: item.thread ?? null,
         asset: item.thread ? item.id : null,
+        prompt: item.prompt,
     });
 }
 

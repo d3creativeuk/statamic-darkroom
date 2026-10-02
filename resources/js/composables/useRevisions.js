@@ -97,11 +97,11 @@ export function useRevisions({ batches, put, revise, urls }) {
      * Open the panel on an image. A round or a saved round brings its thread
      * with it; anything else starts a new one when the first round is sent.
      */
-    async function open({ base, threadId = null, asset = null }) {
+    async function open({ base, threadId = null, asset = null, prompt = null }) {
         Object.assign(state, {
             open: true,
             threadId,
-            prompt: null,
+            prompt,
             origin: threadId ? null : { ...base, key: 'origin' },
             known: [],
             base: threadId ? base : { ...base, key: 'origin' },
@@ -118,7 +118,7 @@ export function useRevisions({ batches, put, revise, urls }) {
             const feed = await http('GET', threadUrl(threadId, asset));
 
             state.known = feed.rounds;
-            state.prompt = feed.prompt;
+            state.prompt = feed.prompt ?? prompt;
             state.origin = feed.origin?.image || feed.origin?.asset
                 ? {
                       key: 'origin',
@@ -187,6 +187,17 @@ export function useRevisions({ batches, put, revise, urls }) {
 
         return batch;
     }
+
+    // The round being worked on can change under the panel: saving it turns
+    // its temporary image into an asset. Follow it, so the next round starts
+    // from what is really there.
+    watch(rounds, (list) => {
+        const current = list.find((round) => `round:${round.id}` === state.base?.key);
+
+        if (current?.target && JSON.stringify(current.target) !== JSON.stringify(state.base.target)) {
+            choose(current);
+        }
+    });
 
     // When the round just sent finishes, carry on from it, unless the user
     // has since chosen something else to work on.
