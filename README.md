@@ -10,7 +10,7 @@ Darkroom uses your own Google API key. You write a prompt, pick a model, aspect 
 
 ## Requirements
 
-- Statamic 6.34 or later
+- Statamic 6
 - PHP 8.3 or later
 - A Google Gemini API key on a project with billing enabled. Google's image models have no free tier.
 
