@@ -109,6 +109,8 @@ class RevisionController extends CpController
             'revision' => ['notes' => $notes, 'general' => $general !== '' ? $general : null],
             // The rounds this one follows on from, so the feed can show them.
             'thread' => $threads->next($source),
+            // The conversation it could carry on, if memory allows when it runs.
+            'memory' => $threads->candidate($source),
             'source_mime' => $source['mime'],
         ], fn ($value) => $value !== null), 1);
 

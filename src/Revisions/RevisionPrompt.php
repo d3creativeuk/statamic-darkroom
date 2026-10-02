@@ -17,8 +17,9 @@ class RevisionPrompt
     /**
      * @param  array{notes?: array<int, array{x: float, y: float, text: string}>, general?: ?string}  $revision
      * @param  array<string, mixed>  $config  The statamic-darkroom config array.
+     * @param  bool  $continuing  Whether the model already has the image from an earlier turn.
      */
-    public static function build(array $revision, array $config): string
+    public static function build(array $revision, array $config, bool $continuing = false): string
     {
         $changes = array_map(
             fn (array $note) => sprintf('At %s: %s', self::where($note), self::sentence($note['text'])),
@@ -32,7 +33,9 @@ class RevisionPrompt
         $numbered = array_map(fn ($change, $i) => ($i + 1).'. '.$change, $changes, array_keys($changes));
 
         return implode("\n", [
-            (string) ($config['revise']['intro'] ?? 'Edit this image. Make only these changes:'),
+            $continuing
+                ? (string) ($config['revise']['follow_up'] ?? 'Edit your last image. Make only these changes:')
+                : (string) ($config['revise']['intro'] ?? 'Edit this image. Make only these changes:'),
             ...$numbered,
             (string) ($config['revise']['keep'] ?? 'Keep everything else exactly as it is: the composition, subject, colours, textures and style.'),
         ]);

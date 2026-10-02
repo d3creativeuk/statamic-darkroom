@@ -40,10 +40,16 @@ class InteractionsClient extends AbstractGeminiClient
             'model' => $request->model,
             'input' => $input,
             'response_format' => $format,
-            // Interactions are kept on Google's side by default. Nothing here
-            // continues a conversation, so there is no reason to leave one.
-            'store' => false,
+            // Interactions are kept on Google's side by default. Only revision
+            // rounds are, so a later round can carry the conversation on;
+            // everything else leaves nothing behind.
+            'store' => $request->store,
         ];
+
+        // The earlier turns, images included, are already on Google's side.
+        if ($request->continues !== null) {
+            $payload['previous_interaction_id'] = $request->continues;
+        }
 
         if ($instruction = $request->nativeInstruction()) {
             $payload['system_instruction'] = $instruction;
@@ -85,6 +91,8 @@ class InteractionsClient extends AbstractGeminiClient
             $image['mime_type'] ?? 'image/jpeg',
             $json['model'] ?? $request->model,
             array_filter($json['usage'] ?? [], 'is_scalar'),
+            // Only present when the turn was stored.
+            is_string($json['id'] ?? null) ? $json['id'] : null,
         );
     }
 }

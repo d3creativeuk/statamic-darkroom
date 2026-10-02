@@ -9,6 +9,7 @@ use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Generations\ItemStatus;
 use D3Creative\Darkroom\Imaging\ImageEncoder;
 use D3Creative\Darkroom\Models\ModelRegistry;
+use D3Creative\Darkroom\Revisions\Memory;
 use D3Creative\Darkroom\Revisions\RevisionPrompt;
 use D3Creative\Darkroom\Support\Runtime;
 use D3Creative\Darkroom\Usage\UsageLog;
@@ -52,20 +53,37 @@ class GenerateBatch
         $upscaling = $kind === 'upscale';
         $revising = $kind === 'revise';
         $fromSource = $upscaling || $revising;
-        $prompt = $batch['prompt'];
-        $instruction = $batch['instruction_text'] ?? null;
+        $instruction = $fromSource ? null : ($batch['instruction_text'] ?? null);
         $references = [];
 
-        if ($fromSource) {
-            $prompt = $revising
-                ? RevisionPrompt::build((array) ($batch['revision'] ?? []), $config)
-                : (string) ($config['upscale']['prompt'] ?? 'Reproduce this exact image at a higher resolution.');
-            $instruction = null;
-
-            if ($source = $store->source($this->batchId)) {
-                $references[] = ['mime_type' => $batch['source_mime'] ?? 'image/jpeg', 'data' => $source];
-            }
+        if ($fromSource && ($source = $store->source($this->batchId))) {
+            $references[] = ['mime_type' => $batch['source_mime'] ?? 'image/jpeg', 'data' => $source];
         }
+
+        // A revision round can carry on the conversation of the round it
+        // starts from, so the model sees the earlier rounds (see Memory). Then
+        // only the notes are sent: the image is already on Google's side.
+        // Decided here rather than when the round was made, so a retry
+        // follows the settings as they are now.
+        $remember = $revising && Memory::enabled($config);
+        $continues = $revising ? Memory::usable($batch['memory'] ?? null, $config) : null;
+
+        $requestFor = fn (bool $continuing) => $models->request(
+            $batch['model'],
+            match (true) {
+                $revising => RevisionPrompt::build((array) ($batch['revision'] ?? []), $config, $continuing),
+                $upscaling => (string) ($config['upscale']['prompt'] ?? 'Reproduce this exact image at a higher resolution.'),
+                default => $batch['prompt'],
+            },
+            $batch['quality'],
+            $batch['aspect_ratio'],
+            $instruction,
+            $continuing ? [] : $references,
+            $continuing ? $continues : null,
+            $remember,
+        );
+
+        $missing = fn (int $index) => $this->failWith($store, $index, 'source_missing', $revising ? 'The image to revise is no longer available.' : 'The image to upscale is no longer available.', false);
 
         $requests = [];
 
@@ -78,20 +96,13 @@ class GenerateBatch
                 continue;
             }
 
-            if ($fromSource && $references === []) {
-                $this->failWith($store, $item['index'], 'source_missing', $revising ? 'The image to revise is no longer available.' : 'The image to upscale is no longer available.', false);
+            if ($fromSource && $continues === null && $references === []) {
+                $missing($item['index']);
 
                 continue;
             }
 
-            $requests[$item['index']] = $models->request(
-                $batch['model'],
-                $prompt,
-                $batch['quality'],
-                $batch['aspect_ratio'],
-                $instruction,
-                $references,
-            );
+            $requests[$item['index']] = $requestFor($continues !== null);
 
             $store->updateItem($this->batchId, $item['index'], ['status' => ItemStatus::Generating->value]);
         }
@@ -101,42 +112,80 @@ class GenerateBatch
         }
 
         $settled = [];
+        // Rounds whose conversation had gone, to send again from the image.
+        $lost = [];
+        // "continued" while carrying a conversation on, "lost" when sending
+        // again because it had gone, otherwise null.
+        $memory = $continues !== null ? 'continued' : null;
+
+        $onEvent = function (string $event, $index, $payload) use ($store, $encoder, $models, $usage, $config, $batch, $upscaling, $revising, &$settled, &$lost, &$memory) {
+            if ($event === 'attempt') {
+                $store->updateItem($this->batchId, $index, ['attempts' => $payload]);
+            }
+
+            if ($event !== 'settled') {
+                return;
+            }
+
+            $settled[$index] = true;
+
+            if (! $payload instanceof ImageResult) {
+                if ($memory === 'continued' && Memory::lost($payload)) {
+                    $lost[$index] = true;
+                    unset($settled[$index]);
+
+                    return;
+                }
+
+                $this->fail($store, $index, $payload);
+
+                return;
+            }
+
+            // Logged as soon as Google has returned an image, before
+            // anything is done with it: that is the moment it is
+            // charged for, whatever happens to it afterwards.
+            $usage->record([
+                'source' => 'cp',
+                'kind' => $batch['kind'] ?? 'generate',
+                'user' => $batch['user'] ?? null,
+                'batch' => $this->batchId,
+                'item' => $index,
+                'model' => $batch['model'],
+                'model_label' => $models->label($batch['model']),
+                'quality' => $batch['quality'],
+                'aspect_ratio' => $batch['aspect_ratio'],
+                'price' => $models->price($batch['model'], $batch['quality']),
+                'prompt' => ($upscaling ? 'Upscale: ' : ($revising ? 'Revise: ' : '')).$batch['prompt'],
+            ]);
+
+            $this->complete($store, $encoder, $config, $index, $payload, $memory);
+        };
 
         try {
-            $generator->generateMany($requests, function (string $event, $index, $payload) use ($store, $encoder, $models, $usage, $config, $batch, $upscaling, $revising, &$settled) {
-                if ($event === 'attempt') {
-                    $store->updateItem($this->batchId, $index, ['attempts' => $payload]);
-                }
+            $generator->generateMany($requests, $onEvent);
 
-                if ($event === 'settled') {
-                    $settled[$index] = true;
+            // A conversation can have gone (Google keeps them for a limited
+            // time). Those rounds go again as fresh ones, from the image.
+            if ($lost !== []) {
+                Log::info('Darkroom: a revision conversation had expired, so the round was sent again from the image.', ['batch' => $this->batchId]);
 
-                    if (! $payload instanceof ImageResult) {
-                        $this->fail($store, $index, $payload);
+                $memory = 'lost';
+                $again = [];
 
-                        return;
+                foreach (array_keys($lost) as $index) {
+                    if ($references === []) {
+                        $settled[$index] = true;
+                        $missing($index);
+                    } else {
+                        $again[$index] = $requestFor(false);
                     }
-
-                    // Logged as soon as Google has returned an image, before
-                    // anything is done with it: that is the moment it is
-                    // charged for, whatever happens to it afterwards.
-                    $usage->record([
-                        'source' => 'cp',
-                        'kind' => $batch['kind'] ?? 'generate',
-                        'user' => $batch['user'] ?? null,
-                        'batch' => $this->batchId,
-                        'item' => $index,
-                        'model' => $batch['model'],
-                        'model_label' => $models->label($batch['model']),
-                        'quality' => $batch['quality'],
-                        'aspect_ratio' => $batch['aspect_ratio'],
-                        'price' => $models->price($batch['model'], $batch['quality']),
-                        'prompt' => ($upscaling ? 'Upscale: ' : ($revising ? 'Revise: ' : '')).$batch['prompt'],
-                    ]);
-
-                    $this->complete($store, $encoder, $config, $index, $payload);
                 }
-            });
+
+                if ($again !== []) {
+                    $generator->generateMany($again, $onEvent);
+                }
+            }
         } catch (\Throwable $e) {
             report($e);
         } finally {
@@ -153,7 +202,7 @@ class GenerateBatch
     /**
      * @param  array<string, mixed>  $config
      */
-    protected function complete(BatchStore $store, ImageEncoder $encoder, array $config, int $index, ImageResult $result): void
+    protected function complete(BatchStore $store, ImageEncoder $encoder, array $config, int $index, ImageResult $result, ?string $memory = null): void
     {
         try {
             $store->putOriginal($this->batchId, $index, $result->binary);
@@ -168,6 +217,9 @@ class GenerateBatch
                 'width' => $width,
                 'height' => $height,
                 'bytes' => strlen($result->binary),
+                // The stored turn a later revision round can carry on.
+                'interaction' => $result->interaction,
+                'memory' => $memory,
             ]);
         } catch (\Throwable $e) {
             report($e);

@@ -135,7 +135,7 @@ class ModelRegistry
     /**
      * @param  array<int, array{mime_type: string, data: string}>  $references  Images to send with the prompt.
      */
-    public function request(string $id, string $prompt, string $quality, ?string $aspectRatio, ?string $instruction, array $references = []): ImageRequest
+    public function request(string $id, string $prompt, string $quality, ?string $aspectRatio, ?string $instruction, array $references = [], ?string $continues = null, bool $store = false): ImageRequest
     {
         return new ImageRequest(
             prompt: $prompt,
@@ -145,6 +145,8 @@ class ModelRegistry
             systemInstruction: $instruction,
             prependInstruction: $this->instructionMode($id) === 'prepend',
             references: $references,
+            continues: $continues,
+            store: $store,
         );
     }
 

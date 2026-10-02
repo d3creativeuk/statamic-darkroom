@@ -108,9 +108,17 @@ abstract class TestCase extends AddonTestCase
     /**
      * A real Interactions response, captured from Google, carrying this image.
      */
-    protected function interactionsResponse(?string $binary = null): array
+    /**
+     * A real Interactions response. Given an id, it is the response to a
+     * stored turn, which is the only kind that carries one.
+     */
+    protected function interactionsResponse(?string $binary = null, ?string $id = null): array
     {
-        $json = $this->fixture('interactions-image');
+        $json = $this->fixture($id === null ? 'interactions-image' : 'interactions-image-stored');
+
+        if ($id !== null) {
+            $json['id'] = $id;
+        }
 
         if ($binary !== null) {
             $json['steps'][1]['content'][0]['data'] = base64_encode($binary);

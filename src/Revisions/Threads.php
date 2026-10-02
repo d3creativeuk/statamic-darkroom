@@ -74,6 +74,37 @@ class Threads
     }
 
     /**
+     * The conversation a new round could carry on (see Memory): the one its
+     * base round was part of. Whether it is actually used is decided when the
+     * round is generated, so a retry decides again with the settings then.
+     *
+     * @param  array<string, mixed>  $source
+     * @return array{continues: string, since: int}|null
+     */
+    public function candidate(array $source): ?array
+    {
+        $base = $source['base'] ?? null;
+
+        if ($base) {
+            $id = BatchStore::threadOf($base['batch']) ? ($base['item']['interaction'] ?? null) : null;
+
+            return is_string($id) ? ['continues' => $id, 'since' => (int) ($base['batch']['created_at'] ?? 0)] : null;
+        }
+
+        $asset = $source['asset'] ?? null;
+        $stamped = $asset ? $this->stamped($source['stamp'] ?? [], $asset) : null;
+        $own = $stamped ? $stamped['rounds'][array_key_last($stamped['rounds'])] : null;
+
+        // A saved image may have been cropped or replaced since. The model
+        // would carry on from the image it made, not the one being revised.
+        if (! isset($own['interaction'], $own['size']) || $own['size'] !== [(int) $asset->width(), (int) $asset->height()]) {
+            return null;
+        }
+
+        return ['continues' => $own['interaction'], 'since' => (int) $own['at']];
+    }
+
+    /**
      * One round as it is remembered by the rounds after it.
      *
      * @param  array<string, mixed>  $batch  A revise batch, as BatchStore::find returns it.

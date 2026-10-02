@@ -14,6 +14,9 @@ final readonly class ImageRequest
      *                                    ahead of the prompt instead.
      * @param  array<int, array{mime_type: string, data: string}>  $references  Images sent
      *                                                                          with the prompt, as raw bytes.
+     * @param  ?string  $continues  An Interactions conversation to carry on, so the
+     *                              model sees the earlier turns.
+     * @param  bool  $store  Keep this turn on Google's side, so it can be carried on.
      */
     public function __construct(
         public string $prompt,
@@ -23,6 +26,8 @@ final readonly class ImageRequest
         public ?string $systemInstruction = null,
         public bool $prependInstruction = false,
         public array $references = [],
+        public ?string $continues = null,
+        public bool $store = false,
     ) {}
 
     /**

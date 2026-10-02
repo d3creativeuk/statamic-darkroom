@@ -271,11 +271,24 @@ return [
     | applies as a share of the width and height, which in testing changed only
     | what was asked. As with upscaling, the system instruction is not sent.
     |
+    | Rounds of revising one image remember each other: Google stores each
+    | round (the image, the notes and what came back) for the project's
+    | retention period, up to 55 days, so the next round can carry on the
+    | conversation and a note can say "undo that". Set DARKROOM_REVISION_MEMORY
+    | to false to store nothing; each round then stands alone. New images and
+    | upscales are never stored.
+    |
     */
 
     'revise' => [
         'intro' => 'Edit this image. Make only these changes:',
+        // Used instead of "intro" when the round carries on the conversation.
+        'follow_up' => 'Edit your last image. Make only these changes:',
         'keep' => 'Keep everything else exactly as it is: the composition, subject, colours, textures and style.',
+        'remember' => env('DARKROOM_REVISION_MEMORY', true),
+        // Google keeps a stored conversation for up to 55 days. Older ones
+        // are not tried; the round starts fresh instead.
+        'remember_days' => 50,
     ],
 
     /*

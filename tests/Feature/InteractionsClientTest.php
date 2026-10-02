@@ -65,6 +65,35 @@ class InteractionsClientTest extends TestCase
     }
 
     #[Test]
+    public function a_revision_round_is_kept_and_can_carry_a_conversation_on()
+    {
+        Http::fake(['*' => Http::response($this->interactionsResponse(null, 'v1_ChdUdXJuVHdv'))]);
+
+        $result = $this->client()->generate($this->request([
+            'prompt' => 'Edit your last image. Make only these changes: 1. Undo that.',
+            'continues' => 'v1_ChdUdXJuT25l',
+            'store' => true,
+        ]));
+
+        $this->assertSame('v1_ChdUdXJuVHdv', $result->interaction);
+
+        Http::assertSent(fn (Request $request) => $request['store'] === true
+            && $request['previous_interaction_id'] === 'v1_ChdUdXJuT25l'
+            // The earlier images are already on Google's side: only the words go.
+            && $request['input'] === 'Edit your last image. Make only these changes: 1. Undo that.');
+    }
+
+    #[Test]
+    public function a_turn_that_was_not_kept_has_no_interaction_and_carries_nothing_on()
+    {
+        Http::fake(['*' => Http::response($this->interactionsResponse())]);
+
+        $this->assertNull($this->client()->generate($this->request())->interaction);
+
+        Http::assertSent(fn (Request $request) => ! isset($request['previous_interaction_id']));
+    }
+
+    #[Test]
     public function every_documented_aspect_ratio_and_quality_is_sent_exactly_as_written()
     {
         Http::fake(['*' => Http::response($this->interactionsResponse())]);

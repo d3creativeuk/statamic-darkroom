@@ -60,6 +60,9 @@ class BatchPresenter
                 'width' => $item['width'] ?? null,
                 'height' => $item['height'] ?? null,
                 'bytes' => $item['bytes'] ?? null,
+                // For a revision round: "continued" when the model remembered
+                // the earlier rounds, "lost" when that conversation had gone.
+                'memory' => $item['memory'] ?? null,
                 'asset' => $item['asset'] ?? null,
                 'filename' => $this->filename($batch['prompt'], $item['index'], $count, $this->suffix($batch)),
                 'urls' => [
