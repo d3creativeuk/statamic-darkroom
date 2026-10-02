@@ -2,9 +2,11 @@
 
 Generate images with Google's Nano Banana models from the Statamic Control Panel and save them straight into your asset library.
 
-Darkroom uses your own Google API key. You write a prompt, pick a model, aspect ratio, quality and folder, preview what comes back, and save the ones you want as normal Statamic assets.
+Darkroom uses your own Google API key. You write a prompt, pick a model, aspect ratio and quality, preview what comes back, and save the ones you want into any folder as normal Statamic assets.
 
 ![Darkroom by D3 Creative](art/darkroom-art.jpg)
+
+![The Darkroom page in the Statamic Control Panel: the prompt, model, batch size, aspect ratio, quality and file type, the estimated cost beside Generate, system instructions, and the History tab of saved images](art/darkroom-screenshot.jpeg)
 
 ## Requirements
 
