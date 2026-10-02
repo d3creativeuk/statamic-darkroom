@@ -31,6 +31,8 @@ function toggle(item, on) {
 }
 
 const allSelected = computed(() => props.items.length > 0 && selected.value.length === props.items.length);
+// As core's listings do it: ticked when anything is, with a dash instead of
+// a tick while only some are. Clicking it then clears the selection.
 const someSelected = computed(() => selected.value.length > 0 && !allSelected.value);
 
 function toggleAll(on) {
@@ -65,7 +67,7 @@ const where = (item) => [item.containerTitle, item.folder].filter(Boolean).join(
             <Checkbox
                 solo
                 :label="__('Select all')"
-                :model-value="allSelected"
+                :model-value="selected.length > 0"
                 :indeterminate="someSelected"
                 :disabled="disabled"
                 @update:model-value="toggleAll"
@@ -87,38 +89,42 @@ const where = (item) => [item.containerTitle, item.folder].filter(Boolean).join(
             </template>
         </div>
 
-        <Table class="dr-trash-table">
-            <TableColumns>
-                <TableColumn class="dr-trash-check-column"><span class="sr-only">{{ __('Select') }}</span></TableColumn>
-                <TableColumn>{{ __('Image') }}</TableColumn>
-                <TableColumn>{{ __('Moved to Trash') }}</TableColumn>
-                <TableColumn>{{ __('Deleted') }}</TableColumn>
-            </TableColumns>
+        <!-- Narrow, the date it was moved gives way to when it goes; anything
+             still too wide scrolls rather than being cut off. -->
+        <div class="dr-trash-scroll">
+            <Table class="dr-trash-table">
+                <TableColumns>
+                    <TableColumn class="dr-trash-check-column"><span class="sr-only">{{ __('Select') }}</span></TableColumn>
+                    <TableColumn>{{ __('Image') }}</TableColumn>
+                    <TableColumn class="dr-trash-moved">{{ __('Moved to Trash') }}</TableColumn>
+                    <TableColumn>{{ __('Deleted') }}</TableColumn>
+                </TableColumns>
             <TableRows>
-                <TableRow v-for="item in items" :key="item.id" :class="{ 'is-selected': isSelected(item) }">
-                    <TableCell class="dr-trash-check-column">
-                        <Checkbox
-                            solo
-                            :label="__('Select :path', { path: item.path })"
-                            :model-value="isSelected(item)"
-                            :disabled="disabled"
-                            @update:model-value="(on) => toggle(item, on)"
-                        />
-                    </TableCell>
-                    <TableCell>
-                        <div class="dr-trash-file">
-                            <img class="dr-trash-thumb" :src="item.thumbnail" :alt="item.alt || ''" loading="lazy" />
-                            <div class="dr-trash-name">
-                                <span class="dr-trash-basename" :title="item.path">{{ item.basename }}</span>
-                                <span class="dr-trash-where">{{ where(item) }}</span>
+                    <TableRow v-for="item in items" :key="item.id" :class="{ 'is-selected': isSelected(item) }">
+                        <TableCell class="dr-trash-check-column">
+                            <Checkbox
+                                solo
+                                :label="__('Select :path', { path: item.path })"
+                                :model-value="isSelected(item)"
+                                :disabled="disabled"
+                                @update:model-value="(on) => toggle(item, on)"
+                            />
+                        </TableCell>
+                        <TableCell>
+                            <div class="dr-trash-file">
+                                <img class="dr-trash-thumb" :src="item.thumbnail" :alt="item.alt || ''" loading="lazy" />
+                                <div class="dr-trash-name">
+                                    <span class="dr-trash-basename" :title="item.path">{{ item.basename }}</span>
+                                    <span class="dr-trash-where">{{ where(item) }}</span>
+                                </div>
                             </div>
-                        </div>
-                    </TableCell>
-                    <TableCell class="dr-trash-nowrap">{{ shortDate(item.trashedAt) }}</TableCell>
-                    <TableCell class="dr-trash-nowrap">{{ deletes(item) }}</TableCell>
-                </TableRow>
-            </TableRows>
-        </Table>
+                        </TableCell>
+                        <TableCell class="dr-trash-nowrap dr-trash-moved">{{ shortDate(item.trashedAt) }}</TableCell>
+                        <TableCell class="dr-trash-nowrap">{{ deletes(item) }}</TableCell>
+                    </TableRow>
+                </TableRows>
+            </Table>
+        </div>
     </div>
 </template>
 
@@ -141,8 +147,19 @@ const where = (item) => [item.containerTitle, item.folder].filter(Boolean).join(
     font-variant-numeric: tabular-nums;
 }
 
+.dr-trash-scroll {
+    overflow-x: auto;
+    container-type: inline-size;
+}
+
 .dr-trash-table {
     width: 100%;
+}
+
+@container (max-width: 34rem) {
+    .dr-trash-moved {
+        display: none;
+    }
 }
 
 .dr-trash-check-column {

@@ -88,7 +88,7 @@ Tick images in History, using the checkbox on each card or **Select all on this 
 
 Moving an image to Trash does not touch the asset. It stays in your asset library, at the same path, and keeps working wherever it is used, until it is deleted 30 days later. From the Trash tab you can **Restore** images to History, or **Delete forever** straight away.
 
-Before anything is moved or deleted, Darkroom checks whether the image is used on the site: in an Assets, Bard or Link field of any entry, term, global or user. If it is, you are told where, and when moving to Trash you can choose **Keep in asset library** instead: the asset stays in use and Darkroom just stops listing it. The 30-day clean-up never deletes an image that is still in use; it does the same and forgets it. Deleting a used image by hand asks first, and Statamic then removes it from those pages. Images written into templates or linked from other sites cannot be detected.
+Before anything is moved or deleted, Darkroom checks whether the image is used on the site: in an Assets, Bard or Link field of any entry, term, global or user. If it is, you are told where, and when moving to Trash you can choose **Keep in asset library** instead: the asset stays in use and Darkroom just stops listing it. The 30-day clean-up never deletes an image that is still in use; it does the same and forgets it. Deleting a used image by hand asks first, listing the pages that will be missing it. Images written into templates or linked from other sites cannot be detected.
 
 Moving to Trash needs permission to delete assets in that container, because that is where Trash leads. Restoring needs permission to edit them.
 

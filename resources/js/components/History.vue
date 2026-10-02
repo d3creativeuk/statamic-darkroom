@@ -42,6 +42,8 @@ function toggle(item, on) {
 }
 
 const allSelected = computed(() => props.items.length > 0 && selected.value.length === props.items.length);
+// As core's listings do it: ticked when anything is, with a dash instead of
+// a tick while only some are. Clicking it then clears the selection.
 const someSelected = computed(() => selected.value.length > 0 && !allSelected.value);
 
 function toggleAll(on) {
@@ -65,7 +67,7 @@ function trashSelected() {
                     v-if="items.length"
                     solo
                     :label="__('Select all on this page')"
-                    :model-value="allSelected"
+                    :model-value="selected.length > 0"
                     :indeterminate="someSelected"
                     :disabled="disabled"
                     @update:model-value="toggleAll"
@@ -231,7 +233,8 @@ function trashSelected() {
 }
 
 .dr-history-search {
-    flex: 1 1 16rem;
+    flex: 1 1 12rem;
+    min-width: 0;
     max-width: 28rem;
 }
 

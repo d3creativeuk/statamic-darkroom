@@ -18,6 +18,32 @@ const open = defineModel('open', { type: Boolean, default: false });
 
 const unused = computed(() => props.count - props.used.length);
 
+// One image is "it", several are "them", in every sentence below.
+const intro = computed(() => {
+    if (props.mode === 'destroy') {
+        return props.count === 1
+            ? __('This deletes it from the asset library. It cannot be undone.')
+            : __('This deletes them from the asset library. It cannot be undone.');
+    }
+
+    return props.used.length === 1
+        ? __('Moving it to Trash deletes it in :days days, and the pages using it lose the image. Or keep it in the asset library, where it stays in use, and Darkroom just stops listing it.', { days: props.days })
+        : __('Moving them to Trash deletes them in :days days, and the pages using them lose the images. Or keep them in the asset library, where they stay in use, and Darkroom just stops listing them.', { days: props.days });
+});
+
+// Statamic clears an asset from the fields its blueprints know about, but
+// Darkroom also finds it elsewhere, so this only promises what is certain.
+const warning = computed(() => {
+    const used = props.used.length;
+
+    const lead =
+        used === props.count
+            ? props.count === 1 ? __('It is still used on the site.') : __('They are all still used on the site.')
+            : used === 1 ? __('One of them is still used on the site.') : __(':n of them are still used on the site.', { n: used });
+
+    return `${lead} ${__('The places listed below will be missing the image.')}`;
+});
+
 const title = computed(() => {
     if (props.mode === 'destroy') {
         return props.count === 1 ? __('Delete this image forever?') : __('Delete :n images forever?', { n: props.count });
@@ -30,18 +56,12 @@ const title = computed(() => {
 <template>
     <Modal v-model:open="open" :title="title">
         <template v-if="mode === 'destroy'">
-            <Description>
-                {{ __('This deletes them from the asset library. It cannot be undone.') }}
-            </Description>
-            <Description v-if="used.length" class="dr-removal-warning">
-                {{ __('Some are still used on the site. Statamic will remove them from these places:') }}
-            </Description>
+            <Description>{{ intro }}</Description>
+            <Description v-if="used.length" class="dr-removal-warning">{{ warning }}</Description>
         </template>
 
         <template v-else>
-            <Description>
-                {{ __('Moving them to Trash deletes them in :days days, and those pages lose the image. Or keep them in the asset library, where they stay in use, and Darkroom just stops listing them.', { days }) }}
-            </Description>
+            <Description>{{ intro }}</Description>
             <Description v-if="unused > 0">
                 {{ unused === 1 ? __('The other image you chose goes to Trash either way.') : __('The other :n images you chose go to Trash either way.', { n: unused }) }}
             </Description>
