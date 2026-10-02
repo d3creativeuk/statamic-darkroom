@@ -10,7 +10,9 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ### Added
 
-- **Revise.** Pin numbered notes to spots on an image ("remove this door", "add a cityscape here"), add an optional note for the whole image, and send it back to the model for a new version. Available on unsaved images and in History. The original is left alone, and a saved revision keeps the original prompt and style and is marked Revised in History.
+- **Revise.** Pin numbered notes to spots on an image ("remove this door", "add a cityscape here"), add a message for the whole image, and send it back to the model for a new version. Available on unsaved images and in History. The original is left alone.
+- **Revision threads.** The Revise panel stays open and shows every round with its notes and the image that came back. Revise from any round to go back and try again. The working area shows one card per thread, with Revisions (n) to reopen it. A saved round keeps the line of rounds that made it, so History can bring the feed back, and is marked Revised.
+- **Rounds remember each other.** The model sees the earlier rounds, so a note can say "undo that". This keeps revision rounds on Google's side for up to 55 days; set `DARKROOM_REVISION_MEMORY=false` to keep nothing there. New images and upscales are never kept.
 
 ## [1.0.1] - 2026-10-02
 

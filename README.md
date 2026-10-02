@@ -80,13 +80,17 @@ The system instruction is not sent with an upscale. The image already carries th
 
 ### Revising with notes
 
-When an image is nearly right, **Revise** lets you say what to change and where. It is on every unsaved image and on every image in History.
+When an image is nearly right, **Revise** lets you say what to change and where, and keep refining it round by round. It is on every unsaved image and on every image in History.
 
-Click the image to pin a numbered note to a spot, then write what to change there: "remove this door" on the door, "add a cityscape here" on an empty patch of background. Add as many as ten. There is also an optional note for the whole image, for things like "warmer light". Choose the model and size, with the price shown, and send it.
+The Revise panel shows the image you are working on next to a feed of every round so far. Click the image to pin a numbered note to a spot and write what to change there: "remove this door" on the door, "add a cityscape here" on an empty patch of background. Add as many as ten. The **Message** box is for anything else: changes to the whole image, such as "warmer light", or notes about earlier rounds, such as "undo that". Choose the model and size, with the price shown, and send it.
 
-The image goes back to the model with your notes, each one saying where it applies (for example "at about 74% from the left and 81% from the top"). The result appears as a new image to preview and save; the one it came from is left alone. When saved, it keeps the original prompt and style, and History marks it **Revised**.
+Each round appears in the feed with your notes and the image that came back, and the panel moves on to it when it is ready, so you can keep going. Any round can be the starting point for the next: click **Revise from this** to go back to an earlier one, which is the way to undo a round that went wrong. Rounds that started somewhere other than the round before them say so ("from round 1"). Save any round from the feed, or from its card on the page.
 
-Like upscaling it is a redraw, so expect small differences elsewhere, and the model may tidy up things that belonged to what you removed, such as an arrow pointing at it. If something must stay, say so in a note. Nano Banana Pro is the most faithful. The system instruction is not sent; the image already carries the style.
+Rounds remember each other. The model sees the earlier rounds of the thread, so a note can refer back to them, and the feed marks a round **Remembered earlier rounds**. To do this, Google keeps each revision round (the image, your notes and what came back) for your project's retention period, up to 55 days, and it is visible in Google AI Studio's logs. Set `DARKROOM_REVISION_MEMORY=false` to keep nothing on Google's side; each round then stands alone, sending the image with its notes. Remembering costs the same as not: only the latest image is billed as input. New images and upscales are never kept. When a conversation is too old or has gone, or a saved image has been cropped or replaced since, the round simply starts fresh from the image, and the feed says so.
+
+The working area shows one card per revision thread: its latest round, with **Revisions (n)** to reopen the feed. Once you save that round, the thread moves to History with it. A saved round keeps the original prompt and style and the line of rounds that led to it, so opening Revise on it from History brings the feed back, even after its unsaved rounds have been cleared away. History marks it **Revised**.
+
+Like upscaling, each round is a redraw, so expect small differences elsewhere, and the model may tidy up things that belonged to what you removed, such as an arrow pointing at it. If something must stay, say so in a note. Nano Banana Pro is the most faithful. The system instruction is not sent; the image already carries the style.
 
 ### History
 
@@ -166,6 +170,8 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `save.apply_source_preset` | `false` | Run the container's source preset on saved images |
 | `temp.retention_hours` | `24` | How long unsaved images are kept |
 | `trash.retention_days` | `30` | How long images wait in Trash before they are deleted |
+| `revise.remember` | `true` | Let revision rounds remember earlier rounds, which keeps them on Google's side for up to 55 days. Also `DARKROOM_REVISION_MEMORY` |
+| `revise.remember_days` | `50` | Conversations older than this start fresh instead of being carried on |
 | `upscale.prompt` | see config | The instruction sent with an image when upscaling it |
 | `alt_text.model` | `gemini-3.5-flash-lite` | The text model that writes alt text. Also `DARKROOM_ALT_TEXT_MODEL` |
 | `alt_text.prompt` | see config | What that model is asked to write |
@@ -198,6 +204,7 @@ php artisan darkroom:prune
 
 - Google's documentation states that every generated image carries an invisible SynthID watermark. It cannot be turned off.
 - Your prompts and images are handled under Google's Gemini API terms, not by D3 Creative. Nothing is sent anywhere else.
+- Revision rounds are kept by Google for up to 55 days so later rounds can remember them (see [Revising with notes](#revising-with-notes)). Set `DARKROOM_REVISION_MEMORY=false` to keep nothing there. New images and upscales are never kept.
 - Apart from upscaling and revising an image Darkroom made, generating from a reference image is not supported yet.
 
 ## Uninstalling
