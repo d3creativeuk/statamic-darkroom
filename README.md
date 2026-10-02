@@ -211,15 +211,6 @@ Darkroom leaves everything it made in place, so you choose what to keep:
 
 Images you saved stay in your asset library as ordinary assets, including any in Trash, which are no longer deleted once Darkroom is gone. Each one keeps a `darkroom` entry in its metadata with the prompt and settings that made it. Nothing reads it without Darkroom, and if you reinstall, they appear in History or Trash again.
 
-## Testing
-
-```bash
-composer install
-vendor/bin/phpunit
-```
-
-The tests never contact Google. Responses are faked from fixtures captured from the real API.
-
 ## Support
 
 Report bugs and ask questions on [GitHub Issues](https://github.com/d3creativeuk/statamic-darkroom/issues). Darkroom is maintained by [D3 Creative](https://d3creative.uk).
