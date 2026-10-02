@@ -222,7 +222,7 @@ The tests never contact Google. Responses are faked from fixtures captured from 
 
 ## Support
 
-For help, questions or to report a bug, [contact D3 Creative](https://d3creative.uk/contact), who maintain Darkroom.
+Report bugs and ask questions on [GitHub Issues](https://github.com/d3creativeuk/statamic-darkroom/issues). Darkroom is maintained by [D3 Creative](https://d3creative.uk).
 
 ## Licence
 
