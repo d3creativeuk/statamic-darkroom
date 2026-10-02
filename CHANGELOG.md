@@ -24,7 +24,7 @@ First release.
 - Reusable system instructions, with an optional default.
 - Saved prompts that remember their settings.
 - History tab listing every saved image, searchable by prompt, filename, alt text or system instruction, and paged like the Assets listing. Click an image to edit the asset in Statamic's own editor without leaving Darkroom, or reuse its prompt and settings, or upscale it.
-- Spend tab with an estimated total per month, by model, and an itemised list.
+- Spend tab with an estimated total per month, by model, and an itemised list. Each user sees their own images; the **See everyone's spend in Darkroom** permission shows everyone's.
 - Generation and saving run after the response, so no queue worker is needed.
 - An expired session says to reload and log in again.
 - `darkroom:smoke` and `darkroom:prune` commands.

@@ -206,6 +206,36 @@ class UsageTest extends TestCase
     }
 
     #[Test]
+    public function each_user_sees_only_their_own_spend_unless_allowed_to_see_everyones()
+    {
+        $this->travelTo('2026-09-30 12:00:00');
+
+        $log = app(UsageLog::class);
+        $log->record(['user' => 'editor', 'model' => 'gemini-3-pro-image', 'price' => 0.134, 'prompt' => 'Mine']);
+        $log->record(['user' => 'someone-else', 'model' => 'gemini-3-pro-image', 'price' => 0.134, 'prompt' => 'Theirs']);
+        $log->record(['source' => 'cli', 'model' => 'gemini-3-pro-image', 'price' => 0.134, 'prompt' => 'From the command line']);
+
+        $this->travelTo('2026-10-01 12:00:00');
+        $log->record(['user' => 'someone-else', 'model' => 'gemini-3-pro-image', 'price' => 0.134, 'prompt' => 'Theirs again']);
+
+        $this->actingAs($this->userWith(['use darkroom']));
+
+        $this->assertSame(['Mine'], array_column($this->getJson(cp_route('darkroom.usage.show', '2026-09'))->json('entries'), 'prompt'));
+        $this->assertSame([['2026-09', 1]], array_map(fn ($month) => [$month['month'], $month['images']], $this->months()));
+        $this->assertSame([], $this->getJson(cp_route('darkroom.usage.show', '2026-10'))->json('entries'));
+        $this->get(cp_route('darkroom.index'))->assertInertia(fn ($page) => $page
+            ->where('usage.0.images', 1)
+            ->where('usageIsEveryones', false)
+        );
+
+        $this->actingAs($this->userWith(['use darkroom', UsageLog::VIEW_ALL], 'manager'));
+
+        $this->assertCount(3, $this->getJson(cp_route('darkroom.usage.show', '2026-09'))->json('entries'));
+        $this->assertSame([['2026-10', 1], ['2026-09', 3]], array_map(fn ($month) => [$month['month'], $month['images']], $this->months()));
+        $this->get(cp_route('darkroom.index'))->assertInertia(fn ($page) => $page->where('usageIsEveryones', true));
+    }
+
+    #[Test]
     public function nothing_is_logged_when_there_is_no_usage()
     {
         $this->assertSame([], $this->months());

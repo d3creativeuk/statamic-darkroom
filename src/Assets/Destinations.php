@@ -85,6 +85,20 @@ class Destinations
     }
 
     /**
+     * Validation for a folder sent from the page. safeFolder() keeps ".."
+     * segments, and although the filesystem refuses a path that climbs out of
+     * the container, that refusal only surfaces once the save has failed.
+     */
+    public static function folderRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            if (is_string($value) && preg_match('#(^|[/\\\\])\.\.([/\\\\]|$)#', $value)) {
+                $fail('Choose a folder inside the container.');
+            }
+        };
+    }
+
+    /**
      * A folder path made safe the same way Statamic does for uploads. A folder
      * that does not exist yet is created by the upload.
      */

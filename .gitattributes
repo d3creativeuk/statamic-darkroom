@@ -4,6 +4,11 @@
 /tests           export-ignore
 /CLAUDE.md       export-ignore
 /phpunit.xml     export-ignore
+# Only needed to rebuild the JS. Sites get the compiled public/build, and the
+# lock file points at a host checkout that does not exist anywhere else.
+/package.json      export-ignore
+/package-lock.json export-ignore
+/vite.config.js    export-ignore
 /.github         export-ignore
 /.gitattributes  export-ignore
 /.gitignore      export-ignore

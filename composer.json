@@ -9,6 +9,10 @@
             "homepage": "https://d3creative.uk"
         }
     ],
+    "support": {
+        "issues": "https://github.com/d3creativeuk/statamic-darkroom/issues",
+        "source": "https://github.com/d3creativeuk/statamic-darkroom"
+    },
     "require": {
         "php": "^8.3",
         "statamic/cms": "^6.34"

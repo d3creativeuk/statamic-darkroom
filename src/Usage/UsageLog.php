@@ -4,6 +4,7 @@ namespace D3Creative\Darkroom\Usage;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -21,6 +22,8 @@ use Illuminate\Support\Str;
  */
 class UsageLog
 {
+    public const VIEW_ALL = 'view all darkroom spend';
+
     /**
      * @param  array<string, mixed>  $config  The statamic-darkroom config array.
      */
@@ -56,28 +59,42 @@ class UsageLog
     }
 
     /**
+     * Whose usage a user may see: null for everyone's, or their own ID.
+     * Entries from the command line carry no user, so only someone allowed to
+     * see everyone's sees those.
+     */
+    public static function scopeFor($user): ?string
+    {
+        return Gate::forUser($user)->allows(self::VIEW_ALL) ? null : (string) $user->id();
+    }
+
+    /**
      * A summary of each month that has any usage, newest first.
      *
+     * @param  string|null  $user  Only this user's entries, or null for everyone's.
      * @return array<int, array<string, mixed>>
      */
-    public function months(int $limit = 12): array
+    public function months(int $limit = 12, ?string $user = null): array
     {
-        $months = collect($this->disk()->files($this->root()))
+        return collect($this->disk()->files($this->root()))
             ->map(fn ($file) => basename($file, '.jsonl'))
             ->filter(fn ($month) => self::validMonth($month))
             ->sortDesc()
+            ->map(fn ($month) => $this->summarise($month, $user))
+            // A month file can hold nothing of this user's.
+            ->filter(fn ($summary) => $summary['images'] + $summary['altTexts'] > 0)
             ->take($limit)
-            ->values();
-
-        return $months->map(fn ($month) => $this->summarise($month))->all();
+            ->values()
+            ->all();
     }
 
     /**
      * Every entry for a month, newest first.
      *
+     * @param  string|null  $user  Only this user's entries, or null for everyone's.
      * @return array<int, array<string, mixed>>
      */
-    public function entries(string $month): array
+    public function entries(string $month, ?string $user = null): array
     {
         if (! self::validMonth($month) || ! $this->disk()->exists($this->file($month))) {
             return [];
@@ -88,7 +105,7 @@ class UsageLog
         foreach (explode("\n", (string) $this->disk()->get($this->file($month))) as $line) {
             $entry = $line === '' ? null : json_decode($line, true);
 
-            if (is_array($entry)) {
+            if (is_array($entry) && ($user === null || ($entry['user'] ?? null) === $user)) {
                 $entries[] = $entry;
             }
         }
@@ -104,9 +121,9 @@ class UsageLog
     /**
      * @return array<string, mixed>
      */
-    protected function summarise(string $month): array
+    protected function summarise(string $month, ?string $user = null): array
     {
-        $entries = collect($this->entries($month));
+        $entries = collect($this->entries($month, $user));
 
         // Alt text calls cost money too, so they count towards the total,
         // but they are not images and are counted separately.

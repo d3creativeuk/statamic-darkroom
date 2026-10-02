@@ -54,7 +54,7 @@ class ItemController extends CpController
             // Where to save is chosen at save time. The batch's own folder is
             // only the suggestion the picker opened on.
             'container' => ['nullable', 'string'],
-            'folder' => ['nullable', 'string', 'max:255'],
+            'folder' => ['nullable', 'string', 'max:255', Destinations::folderRule()],
             'file_type' => ['nullable', 'string', Rule::in(array_keys($config['file_types'] ?? []))],
             'alt' => ['nullable', 'string', 'max:500'],
         ]);

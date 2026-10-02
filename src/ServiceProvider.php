@@ -54,7 +54,13 @@ class ServiceProvider extends AddonServiceProvider
     {
         Permission::extend(function () {
             Permission::group('darkroom', 'Darkroom', function () {
-                Permission::register('use darkroom')->label('Generate images with Darkroom');
+                // Spend lists every prompt behind it, so seeing other people's
+                // is a separate permission. Super users have it anyway.
+                Permission::register('use darkroom', function ($permission) {
+                    $permission->children([
+                        Permission::make(UsageLog::VIEW_ALL)->label('See everyone\'s spend in Darkroom'),
+                    ]);
+                })->label('Generate images with Darkroom');
             });
         });
 

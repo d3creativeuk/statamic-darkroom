@@ -37,6 +37,8 @@ Super users can use Darkroom straight away. Everyone else needs two permissions:
 
 Only containers a user may upload to are offered as destinations.
 
+The **Spend** tab shows each user only the images they generated. To let someone see everyone's, give them **See everyone's spend in Darkroom** (`view all darkroom spend`). Super users always see everyone's.
+
 ## Using it
 
 | Control | What it does |
@@ -82,9 +84,11 @@ The history is not a separate log. The prompt and settings are stored on the ass
 
 ### Spend
 
-The **Spend** tab shows an estimated total for each month, broken down by model, with a list of every image behind it. Alt text calls are included in the total and listed separately.
+The **Spend** tab shows an estimated total for each month, broken down by model, with a list of every image behind it and its prompt. Alt text calls are included in the total and listed separately.
 
-Google charges when an image is generated, so every image it returns is counted, including upscales, ones you went on to discard and ones made with `darkroom:smoke`. Images that failed are not counted. Each is recorded at the list price in your config at the time.
+Each user sees only their own images, unless they have the permission to see everyone's (see [Permissions](#permissions)). Images made with `darkroom:smoke` belong to no user, so only people who can see everyone's spend see those.
+
+Google charges when an image is generated, so every image it returns is counted, including upscales and ones you went on to discard. Images that failed are not counted. Each is recorded at the list price in your config at the time.
 
 These are estimates in US dollars. Your Google invoice is the real figure: it also counts the small number of text tokens in each request, and prices can change before the config is updated.
 
@@ -201,6 +205,10 @@ vendor/bin/phpunit
 ```
 
 The tests never contact Google. Responses are faked from fixtures captured from the real API.
+
+## Support
+
+Report bugs and ask questions on [GitHub Issues](https://github.com/d3creativeuk/statamic-darkroom/issues). Darkroom is maintained by [D3 Creative](https://d3creative.uk).
 
 ## Licence
 

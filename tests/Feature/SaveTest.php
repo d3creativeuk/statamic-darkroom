@@ -247,6 +247,29 @@ class SaveTest extends TestCase
     }
 
     #[Test]
+    public function a_folder_that_climbs_out_of_the_container_is_refused_before_anything_is_queued()
+    {
+        $batch = $this->ready();
+
+        foreach (['../escaped', 'blog/../../escaped', '..\\escaped', '..'] as $folder) {
+            $this->postJson($batch['items'][0]['urls']['save'], ['filename' => 'nope', 'folder' => $folder])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['folder' => 'Choose a folder inside the container.']);
+        }
+
+        $this->assertSame('complete', $this->getJson($batch['urls']['show'])->json('items.0.status'));
+
+        Http::fake();
+
+        $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload(['folder' => '../escaped']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('folder');
+
+        // Dots inside a name are not a way out.
+        $this->postJson($batch['items'][0]['urls']['save'], ['filename' => 'kept', 'folder' => 'v1..2'])->assertAccepted();
+    }
+
+    #[Test]
     public function the_batchs_file_type_is_used_unless_the_save_says_otherwise()
     {
         $batch = $this->ready(['file_type' => 'webp']);

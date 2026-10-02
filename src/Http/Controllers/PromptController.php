@@ -2,6 +2,7 @@
 
 namespace D3Creative\Darkroom\Http\Controllers;
 
+use D3Creative\Darkroom\Assets\Destinations;
 use D3Creative\Darkroom\Prompts\PromptStore;
 use Illuminate\Http\Request;
 use Statamic\Http\Controllers\CP\CpController;
@@ -49,7 +50,7 @@ class PromptController extends CpController
             'quality' => ['nullable', 'string', 'max:20'],
             'file_type' => ['nullable', 'string', 'max:20'],
             'container' => ['nullable', 'string', 'max:255'],
-            'folder' => ['nullable', 'string', 'max:255'],
+            'folder' => ['nullable', 'string', 'max:255', Destinations::folderRule()],
         ]);
     }
 }

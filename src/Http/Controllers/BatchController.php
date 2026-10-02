@@ -42,7 +42,7 @@ class BatchController extends CpController
             'batch_size' => ['nullable', 'integer', 'min:1', 'max:'.(int) ($config['batch']['max'] ?? 4)],
             'file_type' => ['required', 'string', Rule::in(array_keys($config['file_types'] ?? []))],
             'container' => ['required', 'string'],
-            'folder' => ['nullable', 'string', 'max:255'],
+            'folder' => ['nullable', 'string', 'max:255', Destinations::folderRule()],
             'instruction' => ['nullable', 'string'],
         ]);
 

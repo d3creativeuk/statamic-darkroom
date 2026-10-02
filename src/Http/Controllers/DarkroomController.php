@@ -77,7 +77,8 @@ class DarkroomController extends CpController
             'instructions' => $instructions->all(),
             'batches' => array_map([$presenter, 'present'], $batches->openFor((string) $user->id())),
             'history' => $history->page($user),
-            'usage' => $usage->months(),
+            'usage' => $usage->months(user: UsageLog::scopeFor($user)),
+            'usageIsEveryones' => UsageLog::scopeFor($user) === null,
             'urls' => [
                 'batches' => cp_route('darkroom.batches.store'),
                 'upscales' => cp_route('darkroom.upscales.store'),

@@ -41,6 +41,7 @@ const props = defineProps({
     batches: { type: Array, required: true },
     history: { type: Object, required: true },
     usage: { type: Array, required: true },
+    usageIsEveryones: { type: Boolean, default: false },
     urls: { type: Object, required: true },
 });
 
@@ -617,7 +618,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
 
             <TabContent name="spend">
                 <Card class="dr-archive-card">
-                    <Spend :months="months" :url="urls.usage" />
+                    <Spend :months="months" :url="urls.usage" :everyones="usageIsEveryones" />
                 </Card>
             </TabContent>
         </Tabs>
