@@ -4,9 +4,10 @@ import { Badge, Button, Description, Heading, Modal, ModalClose, Stack } from '@
 import { shortDate } from '../composables/format.js';
 
 /**
- * How a saved revised image was made, read-only: the prompt, the original,
- * then for each round the notes, pinned on the image they were written on,
- * and the image that came back. The last round's image is the saved one.
+ * How a saved revised image was made, read-only and newest first: the saved
+ * image and the notes that produced it, pinned on the image they were
+ * written on, then each earlier round the same way, down to the original
+ * and its prompt. The server sends the rounds oldest first.
  */
 const props = defineProps({
     // The History card it was opened from.
@@ -52,6 +53,8 @@ const meta = (step) => [step.modelLabel, step.qualityLabel, memory(step)].filter
 
 const isLast = (step) => step.number === props.story?.steps.length;
 
+const newestFirst = computed(() => [...(props.story?.steps ?? [])].reverse());
+
 function forget() {
     confirming.value = false;
     emit('forget');
@@ -69,33 +72,41 @@ function forget() {
             <div class="dr-story-body" :aria-busy="loading">
                 <p v-if="loading && !story" class="dr-story-loading" role="status">{{ __('Loading…') }}</p>
 
+                <!-- Newest first: each image, then what was asked to get it,
+                     down to the original and the prompt that made it. -->
                 <ol v-else-if="story" class="dr-story-feed">
-                    <li class="dr-story-entry">
-                        <div class="dr-story-bubble dr-story-bubble--ask">
-                            <p class="dr-story-label">{{ __('Prompt') }}</p>
-                            <p class="dr-story-text">{{ story.prompt }}</p>
-                            <Badge v-if="story.instructionTitle" class="dr-story-badge" size="sm" icon="ai-sparks">{{ story.instructionTitle }}</Badge>
-                        </div>
-
+                    <li v-for="step in newestFirst" :key="step.round" class="dr-story-entry">
                         <div class="dr-story-answer">
-                            <p class="dr-story-label">{{ __('Original') }}</p>
-                            <img v-if="story.original && !story.original.hidden" class="dr-story-image" :src="story.original.preview" :alt="__('The original image')" loading="lazy" />
-                            <div v-else class="dr-story-missing">
-                                {{ story.original?.hidden ? __('You do not have permission to see this image.') : __('This image was not kept.') }}
-                            </div>
-                        </div>
-                    </li>
-
-                    <li v-if="story.earlier" class="dr-story-entry">
-                        <Description>{{ __('Earlier rounds are not shown. A saved image keeps its most recent rounds.') }}</Description>
-                    </li>
-
-                    <li v-for="step in story.steps" :key="step.round" class="dr-story-entry">
-                        <div class="dr-story-bubble dr-story-bubble--ask">
                             <p class="dr-story-heading">
                                 <strong>{{ __('Round :n', { n: step.number }) }}</strong>
                                 <span v-if="step.at" class="dr-story-time">{{ shortDate(step.at, true) }}</span>
                             </p>
+
+                            <img
+                                v-if="step.result && !step.result.hidden"
+                                class="dr-story-image"
+                                :src="step.result.preview"
+                                :alt="__('Round :n', { n: step.number })"
+                                loading="lazy"
+                            />
+                            <div v-else class="dr-story-missing">
+                                {{ step.result?.hidden ? __('You do not have permission to see this image.') : __('This image was not kept.') }}
+                            </div>
+
+                            <p v-if="meta(step)" class="dr-story-meta">{{ meta(step) }}</p>
+
+                            <p v-if="isLast(step)" class="dr-story-saved">
+                                <Badge size="sm" color="green">{{ __('Saved') }}</Badge>
+                                <span>{{ story.saved.path }}</span>
+                            </p>
+                            <p v-else-if="step.result?.kind === 'saved'" class="dr-story-meta">
+                                {{ __('Also saved as :path', { path: step.result.path }) }}
+                            </p>
+                            <p v-if="step.result?.trashed" class="dr-story-meta">{{ __('In Trash') }}</p>
+                        </div>
+
+                        <div class="dr-story-bubble dr-story-bubble--ask">
+                            <p class="dr-story-label">{{ __('Notes') }}</p>
 
                             <div class="dr-story-request">
                                 <!-- The notes where they were pinned, on the image they were written on. -->
@@ -123,29 +134,25 @@ function forget() {
                                 </div>
                             </div>
                         </div>
+                    </li>
 
+                    <li v-if="story.earlier" class="dr-story-entry">
+                        <Description>{{ __('Earlier rounds are not shown. A saved image keeps its most recent rounds.') }}</Description>
+                    </li>
+
+                    <li class="dr-story-entry">
                         <div class="dr-story-answer">
-                            <img
-                                v-if="step.result && !step.result.hidden"
-                                class="dr-story-image"
-                                :src="step.result.preview"
-                                :alt="__('Round :n', { n: step.number })"
-                                loading="lazy"
-                            />
+                            <p class="dr-story-label">{{ __('Original') }}</p>
+                            <img v-if="story.original && !story.original.hidden" class="dr-story-image" :src="story.original.preview" :alt="__('The original image')" loading="lazy" />
                             <div v-else class="dr-story-missing">
-                                {{ step.result?.hidden ? __('You do not have permission to see this image.') : __('This image was not kept.') }}
+                                {{ story.original?.hidden ? __('You do not have permission to see this image.') : __('This image was not kept.') }}
                             </div>
+                        </div>
 
-                            <p v-if="meta(step)" class="dr-story-meta">{{ meta(step) }}</p>
-
-                            <p v-if="isLast(step)" class="dr-story-saved">
-                                <Badge size="sm" color="green">{{ __('Saved') }}</Badge>
-                                <span>{{ story.saved.path }}</span>
-                            </p>
-                            <p v-else-if="step.result?.kind === 'saved'" class="dr-story-meta">
-                                {{ __('Also saved as :path', { path: step.result.path }) }}
-                            </p>
-                            <p v-if="step.result?.trashed" class="dr-story-meta">{{ __('In Trash') }}</p>
+                        <div class="dr-story-bubble dr-story-bubble--ask">
+                            <p class="dr-story-label">{{ __('Prompt') }}</p>
+                            <p class="dr-story-text">{{ story.prompt }}</p>
+                            <Badge v-if="story.instructionTitle" class="dr-story-badge" size="sm" icon="ai-sparks">{{ story.instructionTitle }}</Badge>
                         </div>
                     </li>
                 </ol>
