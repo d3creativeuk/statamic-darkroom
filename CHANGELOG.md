@@ -11,8 +11,22 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 ### Added
 
 - **Revise.** Pin numbered notes to spots on an image ("remove this door", "add a cityscape here"), add a message for the whole image, and send it back to the model for a new version. Available on unsaved images and in History. The original is left alone.
-- **Revision threads.** The Revise panel stays open and shows every round with its notes and the image that came back. Revise from any round to go back and try again. The working area shows one card per thread, with Revisions (n) to reopen it. A saved round keeps the line of rounds that made it, so History can bring the feed back, and is marked Revised.
+- **Revision threads.** The Revise panel stays open and shows every round with its notes and the image that came back. Revise from any round to go back and try again. The working area shows one card per thread, with Revisions (n) to reopen it. A saved round keeps the line of rounds that made it, so History can bring the feed back.
 - **Rounds remember each other.** The model sees the earlier rounds, so a note can say "undo that". This keeps revision rounds on Google's side for up to 55 days; set `DARKROOM_REVISION_MEMORY=false` to keep nothing there. New images and upscales are never kept.
+- **Revision history.** Saving a revised image also saves the original and every round that led to it, at full size, in a `revisions` folder beside it. Clicking a revised image in History shows how it was made: each round's notes, pinned on the image they were written on, and the image that came back. From there, open it in the asset editor, carry on revising, or delete its revision history. Deleting the image deletes its earlier steps too, unless another image's story or a page still uses them. Set `DARKROOM_SAVE_REVISION_HISTORY=false` to keep none of them.
+
+### Changed
+
+- Unsaved rounds of a revision thread are kept until 24 hours after the thread's latest round, so a long session cannot lose its first rounds before the last is saved.
+
+### Fixed
+
+- A saved round that was moved or renamed no longer drops out of its thread.
+- Revising the original again from the Revise panel stays in the same thread instead of starting a new one the panel never showed.
+
+### Security
+
+- The README now explains that Statamic's `.meta` files, which hold prompts and revision notes, can be served publicly, and how to block them.
 
 ## [1.0.1] - 2026-10-02
 

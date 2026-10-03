@@ -88,13 +88,25 @@ Each round appears in the feed with your notes and the image that came back, and
 
 Rounds remember each other. The model sees the earlier rounds of the thread, so a note can refer back to them, and the feed marks a round **Remembered earlier rounds**. To do this, Google keeps each revision round (the image, your notes and what came back) for your project's retention period, up to 55 days, and it is visible in Google AI Studio's logs. Set `DARKROOM_REVISION_MEMORY=false` to keep nothing on Google's side; each round then stands alone, sending the image with its notes. Remembering costs the same as not: only the latest image is billed as input. New images and upscales are never kept. When a conversation is too old or has gone, or a saved image has been cropped or replaced since, the round simply starts fresh from the image, and the feed says so.
 
-The working area shows one card per revision thread: its latest round, with **Revisions (n)** to reopen the feed. Once you save that round, the thread moves to History with it. A saved round keeps the original prompt and style and the line of rounds that led to it, so opening Revise on it from History brings the feed back, even after its unsaved rounds have been cleared away. History marks it **Revised**.
+The working area shows one card per revision thread: its latest round, with **Revisions (n)** to reopen the feed. Once you save that round, the thread moves to History with it. A saved round keeps the original prompt and style and the line of rounds that led to it, so opening Revise on it from History brings the feed back, even after its unsaved rounds have been cleared away.
 
 Like upscaling, each round is a redraw, so expect small differences elsewhere, and the model may tidy up things that belonged to what you removed, such as an arrow pointing at it. If something must stay, say so in a note. Nano Banana Pro is the most faithful. The system instruction is not sent; the image already carries the style.
 
+### How a revised image was made
+
+When you save a revised round, the original and every round that led to it are saved too, at full size, in a `revisions` folder beside it: save `darkroom/kite.jpg` and you also get `darkroom/revisions/kite-original.jpg`, `kite-round-1.jpg` and so on. An original that was already in your asset library, or a round you saved as an image of its own, is not copied; it is used where it is. Rounds shared by two saved images are saved once. Rounds you never saved still go after 24 hours. The folder picker tells you before you save.
+
+In History, click a revised image, or its **Revisions (n)** button, to see its story: the prompt, the original, then each round's notes pinned on the image they were written on and the image that came back, ending with the one you saved. From there you can open it in the asset editor, carry on revising it, or delete its revision history. Anyone who can view the image can see its story; an earlier image in a container they cannot view is shown as hidden. Moving or renaming any of these images does not break it: they are found by the data stored on them, not by their paths.
+
+**Delete revision history** deletes the earlier images kept for it and the notes from each round. The image stays where it is, and stays in History. An earlier image that another saved image's story still shows, or that is used on a page, is kept, and you are told which. It needs permission to edit the image, and earlier images you may not delete are kept too.
+
+Deleting a revised image, from Darkroom's Trash or anywhere else in Statamic, deletes the earlier images kept for it in the same way. If the image you delete is itself an earlier step of another saved image, a copy is kept in that image's `revisions` folder first, so its story stays whole.
+
+The earlier images are ordinary assets. They show in the asset browser and in asset fields, are public at the container's URL like any other asset, and are committed to Git if your site tracks its assets. Each one is the size of the image it shows: 2 to 2.5 MB at 2K, and around 9 MB at 4K. Set `DARKROOM_SAVE_REVISION_HISTORY=false` to keep none of them; stories then show the notes, and say the images were not kept. Images you revised and saved before this was added have their earlier steps saved once, the first time Darkroom is opened, if those rounds are still in temporary storage.
+
 ### History
 
-Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the date it was made, its size, and the model, aspect ratio and quality that made it. **Reuse prompt** puts the prompt and all of those settings back into the form. The search box finds images by any word in the prompt, filename, alt text or system instruction, so a folder name finds everything saved in it. It pages like the Assets listing, with the same **Per Page** menu, and remembers your choice as a user preference. Clicking an image opens Statamic's own asset editor over the page, so you can change alt text, set a focal point, crop or rename it without leaving Darkroom.
+Once an image is saved it moves to the **History** tab: every image Darkroom has saved, newest first, with the date it was made, its size, and the model, aspect ratio and quality that made it. **Reuse prompt** puts the prompt and all of those settings back into the form. The search box finds images by any word in the prompt, filename, alt text or system instruction, so a folder name finds everything saved in it. It pages like the Assets listing, with the same **Per Page** menu, and remembers your choice as a user preference. Clicking an image opens Statamic's own asset editor over the page, so you can change alt text, set a focal point, crop or rename it without leaving Darkroom. Clicking a revised image shows [how it was made](#how-a-revised-image-was-made) instead, with a button to open the editor.
 
 The history is not a separate log. The prompt and settings are stored on the asset itself, under a `darkroom` key in its metadata. So the history follows your assets wherever they are synced, editing an asset later keeps it, and deleting an asset removes it from the list. You only see images from containers you are allowed to view.
 
@@ -135,6 +147,7 @@ Saved prompts and system instructions are stored as YAML in `resources/addons/st
 - **Full size.** Images are stored at the size they were generated. A container's source preset (for example a 2000px cap on uploads) is not applied to them. Set `save.apply_source_preset` to `true` to change that.
 - **JPEG is untouched.** Google returns JPEG. Saving as JPEG keeps those exact bytes with no re-compression. WebP and PNG are converted on your server. A PNG is a lossless copy of Google's JPEG, so it adds no detail and is several times the size; choose it when something needs the format.
 - **Like any other upload.** Saving goes through Statamic's own upload path, so filenames are made safe, a name that is already taken gets a suffix instead of overwriting, the usual asset events fire and Glide presets are warmed.
+- **And the steps before it.** Saving a revised image also saves the images that led to it, in a `revisions` folder beside it (see [How a revised image was made](#how-a-revised-image-was-made)). Those are written straight into the container, so no Glide presets are made for them.
 
 Full-size sources are large. A 4K JPEG is around 9 MB.
 
@@ -172,6 +185,8 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `trash.retention_days` | `30` | How long images wait in Trash before they are deleted |
 | `revise.remember` | `true` | Let revision rounds remember earlier rounds, which keeps them on Google's side for up to 55 days. Also `DARKROOM_REVISION_MEMORY` |
 | `revise.remember_days` | `50` | Conversations older than this start fresh instead of being carried on |
+| `revise.history.save` | `true` | Save the original and earlier rounds of a revised image beside it when it is saved. Also `DARKROOM_SAVE_REVISION_HISTORY` |
+| `revise.history.folder` | `revisions` | The folder they are saved in, inside the saved image's folder |
 | `upscale.prompt` | see config | The instruction sent with an image when upscaling it |
 | `alt_text.model` | `gemini-3.5-flash-lite` | The text model that writes alt text. Also `DARKROOM_ALT_TEXT_MODEL` |
 | `alt_text.prompt` | see config | What that model is asked to write |
@@ -206,6 +221,7 @@ php artisan darkroom:prune
 - Your prompts and images are handled under Google's Gemini API terms, not by D3 Creative. Nothing is sent anywhere else.
 - Revision rounds are kept by Google for up to 55 days so later rounds can remember them (see [Revising with notes](#revising-with-notes)). Set `DARKROOM_REVISION_MEMORY=false` to keep nothing there. New images and upscales are never kept.
 - Apart from upscaling and revising an image Darkroom made, generating from a reference image is not supported yet.
+- Statamic keeps each asset's data, including Darkroom's prompts and revision notes, in `.meta` folders on the container's disk. If a container lives in your public folder, your web server may serve those files to anyone who guesses the address, as Laravel Herd does. Many production setups already block paths starting with a dot; if yours does not, add a rule such as nginx's `location ~ /\.(?!well-known) { deny all; }`.
 
 ## Uninstalling
 
@@ -227,6 +243,8 @@ Darkroom leaves everything it made in place, so you choose what to keep:
 | Permission | `use darkroom` in `resources/users/roles.yaml` | Only there if you gave it to a role. It does nothing once Darkroom is gone |
 
 Images you saved stay in your asset library as ordinary assets, including any in Trash, which are no longer deleted once Darkroom is gone. Each one keeps a `darkroom` entry in its metadata with the prompt and settings that made it. Nothing reads it without Darkroom, and if you reinstall, they appear in History or Trash again.
+
+The same goes for the `revisions` folders beside revised images: they stay as ordinary assets, and you can delete them like any other folder. Their images carry a `darkroom_revision` entry, and an image that a revision started from carries `darkroom_origin`.
 
 ## Support
 
