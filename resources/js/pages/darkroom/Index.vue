@@ -194,6 +194,16 @@ const { batches, generating, put, generate, upscale, revise, save, retry, discar
         if (item.status === 'saved') {
             Statamic.$toast.success(__('Saved to :path', { path: item.asset?.path ?? __('assets') }));
 
+            // A revised image's earlier steps are kept beside it, but some may
+            // already have gone from temporary storage.
+            if (item.historyMissing?.length) {
+                const steps = item.historyMissing.map((step) =>
+                    step === 'all' ? __('the earlier steps') : step === 0 ? __('the original') : __('round :n', { n: step }),
+                );
+
+                Statamic.$toast.info(__('Its story will show notes only for steps no longer available: :steps.', { steps: steps.join(', ') }));
+            }
+
             refreshHistory();
         }
     },

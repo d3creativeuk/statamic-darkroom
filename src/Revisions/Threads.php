@@ -69,6 +69,14 @@ class Threads
             ];
         }
 
+        // A kept step of a saved image's history: a branch from that round,
+        // or from the start for the kept original.
+        if (! $base && $asset && ($kept = $this->kept($asset))) {
+            return $kept['round'] === null
+                ? ['id' => $kept['thread'], 'parent' => null, 'origin' => ['asset' => $asset->id()], 'ancestors' => []]
+                : ['id' => $kept['thread'], 'parent' => $kept['round'], 'origin' => $kept['origin'], 'ancestors' => $kept['rounds']];
+        }
+
         if ($join !== null && $userId !== null && ($joined = $this->joined($join, $userId, $source))) {
             return $joined;
         }
@@ -99,6 +107,17 @@ class Threads
         }
 
         $asset = $source['asset'] ?? null;
+
+        // A kept step carries its round's conversation, unless the copy has
+        // been cropped or replaced since it was kept.
+        $tag = $asset ? (array) $asset->get(ThreadAssets::REVISION_KEY) : [];
+
+        if (is_string($tag['interaction'] ?? null)) {
+            return ($tag['size'] ?? null) === [(int) $asset->width(), (int) $asset->height()]
+                ? ['continues' => $tag['interaction'], 'since' => (int) ($tag['at'] ?? 0)]
+                : null;
+        }
+
         $stamped = $asset ? $this->stamped($source['stamp'] ?? [], $asset) : null;
         $own = $stamped ? $stamped['rounds'][array_key_last($stamped['rounds'])] : null;
 
@@ -260,12 +279,57 @@ class Threads
         $matches = match (true) {
             (bool) $base => ($origin['batch'] ?? null) === $base['batch']['id'] && ($origin['index'] ?? null) === (int) $base['item']['index'],
             (bool) $asset => ($origin['asset'] ?? null) === $asset->id()
-                || array_key_exists($thread, (array) (((array) $asset->get(SavedImages::KEY))['origin_of'] ?? []))
+                || array_key_exists($thread, (array) $asset->get(ThreadAssets::ORIGIN_KEY))
                 || (isset($origin['batch']) && ($this->store->item($origin['batch'], $origin['index'])['asset']['id'] ?? null) === $asset->id()),
             default => false,
         };
 
         return $matches ? ['id' => $thread, 'parent' => null, 'origin' => $origin, 'ancestors' => []] : null;
+    }
+
+    /**
+     * Where a kept step sits in its thread: the line of rounds up to and
+     * including it, read from a saved image whose history includes it. Null
+     * when it is not a kept step, or no saved image lists it any more.
+     *
+     * @return array{thread: string, round: ?string, origin: ?array<string, mixed>, rounds: array<int, array<string, mixed>>}|null
+     */
+    protected function kept(AssetContract $asset): ?array
+    {
+        $tag = (array) $asset->get(ThreadAssets::REVISION_KEY);
+        $thread = $tag['thread'] ?? null;
+        $round = $tag['round'] ?? null;
+
+        if (! is_string($thread) || ! BatchStore::validId($thread)) {
+            return null;
+        }
+
+        if ($round === 'origin') {
+            return ['thread' => $thread, 'round' => null, 'origin' => null, 'rounds' => []];
+        }
+
+        if (! is_string($round) || ! BatchStore::validId($round)) {
+            return null;
+        }
+
+        $found = $this->assets->find($thread)['rounds'];
+
+        foreach ((array) ($tag['saved'] ?? []) as $saved) {
+            $image = is_string($saved) ? ($found[$saved] ?? null) : null;
+            $line = $image ? $this->stamped((array) $image->get(SavedImages::KEY), $image) : null;
+            $position = $line ? array_search($round, array_column($line['rounds'], 'id'), true) : false;
+
+            if ($position !== false) {
+                return [
+                    'thread' => $thread,
+                    'round' => $round,
+                    'origin' => $line['origin'],
+                    'rounds' => array_slice($line['rounds'], 0, $position + 1),
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**

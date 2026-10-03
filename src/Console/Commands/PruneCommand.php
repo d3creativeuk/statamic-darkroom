@@ -4,6 +4,7 @@ namespace D3Creative\Darkroom\Console\Commands;
 
 use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\History\Trash;
+use D3Creative\Darkroom\Revisions\RevisionHistory;
 use Illuminate\Console\Command;
 
 class PruneCommand extends Command
@@ -14,10 +15,12 @@ class PruneCommand extends Command
 
     protected $description = 'Remove generated images that were never saved or discarded, and empty old trash';
 
-    public function handle(BatchStore $store, Trash $trash): int
+    public function handle(BatchStore $store, Trash $trash, RevisionHistory $revisions): int
     {
         $hours = $this->option('hours');
         $days = $this->option('days');
+
+        $revisions->backfill();
 
         $pruned = $store->prune(is_numeric($hours) ? (int) $hours : null);
 

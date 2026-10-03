@@ -2,6 +2,8 @@
 
 namespace D3Creative\Darkroom\History;
 
+use D3Creative\Darkroom\Revisions\RevisionHistory;
+use D3Creative\Darkroom\Revisions\ThreadAssets;
 use Illuminate\Support\Facades\Gate;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Facades\AssetContainer;
@@ -68,7 +70,29 @@ class Trash
      */
     public function forget(AssetContract $asset): void
     {
+        $stamp = (array) $asset->get(SavedImages::KEY);
+
+        // Once unstamped it can no longer be found as a round, so any later
+        // image's story that shows it keeps a copy first.
+        try {
+            app(RevisionHistory::class)->preserve($asset, asOriginal: false);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         $asset->remove(SavedImages::KEY)->save();
+
+        // The steps kept for a revised image go with its place in Darkroom,
+        // unless another image's story or the site still needs them.
+        $thread = $stamp['thread']['id'] ?? null;
+
+        if (is_string($thread) && ($round = ThreadAssets::savedRound($stamp))) {
+            try {
+                app(RevisionHistory::class)->release($thread, $round);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
     }
 
     public function destroy(AssetContract $asset): void

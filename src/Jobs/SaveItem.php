@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Assets\AssetSaver;
 use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Generations\ItemStatus;
 use D3Creative\Darkroom\History\SavedImages;
+use D3Creative\Darkroom\Revisions\RevisionHistory;
 use D3Creative\Darkroom\Revisions\Threads;
 use D3Creative\Darkroom\Support\Runtime;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,7 +33,7 @@ class SaveItem
         public ?string $folder = null,
     ) {}
 
-    public function handle(BatchStore $store, AssetSaver $saver, Threads $threads): void
+    public function handle(BatchStore $store, AssetSaver $saver, Threads $threads, RevisionHistory $history): void
     {
         $batch = $store->find($this->batchId);
         $item = $store->item($this->batchId, $this->index);
@@ -60,9 +61,29 @@ class SaveItem
                 [SavedImages::KEY => SavedImages::stamp($batch, $threads->trail($batch, $item))],
             );
 
+            // The steps that led to a revised image are saved beside it, so
+            // its story keeps its pictures. That can never undo the save.
+            // history_missing lists the steps whose image had gone: 0 for the
+            // original, otherwise the round's number, or "all" when keeping
+            // them failed outright.
+            $missing = [];
+            $kept = false;
+
+            if (BatchStore::threadOf($batch) && $history->enabled()) {
+                try {
+                    $missing = $history->keep($batch, $asset);
+                    $kept = true;
+                } catch (\Throwable $e) {
+                    report($e);
+                    $missing = ['all'];
+                }
+            }
+
             $store->updateItem($this->batchId, $this->index, [
                 'status' => ItemStatus::Saved->value,
                 'save_error' => null,
+                'history_missing' => $missing ?: null,
+                'history_kept' => $kept,
                 'asset' => [
                     'id' => $asset->id(),
                     'path' => $asset->path(),

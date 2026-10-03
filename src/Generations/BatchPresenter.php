@@ -63,6 +63,8 @@ class BatchPresenter
                 // For a revision round: "continued" when the model remembered
                 // the earlier rounds, "lost" when that conversation had gone.
                 'memory' => $item['memory'] ?? null,
+                // Steps of a saved revision whose image had already gone.
+                'historyMissing' => $item['history_missing'] ?? null,
                 'asset' => $item['asset'] ?? null,
                 'filename' => $this->filename($batch['prompt'], $item['index'], $count, $this->suffix($batch)),
                 'urls' => [

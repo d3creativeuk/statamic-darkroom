@@ -14,14 +14,21 @@ use Statamic\Facades\AssetContainer;
  *
  * Three kinds of asset belong to a thread:
  * - a saved round: its darkroom stamp's last round is the round it is;
- * - a revision asset (see RevisionHistory): tagged with the round it shows;
+ * - a revision asset (see RevisionHistory): a copy of an earlier step, tagged
+ *   with the round it shows;
  * - the original the first round started from, when it was already an asset:
  *   tagged with the threads that started from it.
  */
 class ThreadAssets
 {
-    // On a revision asset: {thread, round (a round id or "origin"), step, saved}.
+    // On a revision asset: {thread, round (a round id or "origin"), step,
+    // saved (the saved rounds whose history includes it), and what made it}.
     public const REVISION_KEY = 'darkroom_revision';
+
+    // On an original that was already an asset: {thread: [saved round ids]}.
+    // Kept apart from the darkroom stamp, so an image Darkroom did not make
+    // does not start appearing in History.
+    public const ORIGIN_KEY = 'darkroom_origin';
 
     /**
      * Every container is asked, whatever the viewer may see: callers decide
@@ -39,32 +46,20 @@ class ThreadAssets
             return ['rounds' => $rounds, 'origin' => $origin];
         }
 
-        $revisions = [];
+        foreach ($this->stamped(SavedImages::KEY) as $asset) {
+            $stamp = (array) $asset->get(SavedImages::KEY);
 
-        foreach (AssetContainer::all() as $container) {
-            foreach ($container->queryAssets()->whereNotNull(SavedImages::KEY)->get() as $asset) {
-                $stamp = (array) $asset->get(SavedImages::KEY);
-
-                if (($round = self::savedRound($stamp)) && ($stamp['thread']['id'] ?? null) === $thread) {
-                    $rounds[$round] ??= $asset;
-                }
-
-                if (is_array($stamp['origin_of'] ?? null) && array_key_exists($thread, $stamp['origin_of'])) {
-                    $origin ??= $asset;
-                }
-            }
-
-            foreach ($container->queryAssets()->whereNotNull(self::REVISION_KEY)->get() as $asset) {
-                $tag = (array) $asset->get(self::REVISION_KEY);
-
-                if (($tag['thread'] ?? null) === $thread && is_string($tag['round'] ?? null)) {
-                    $revisions[] = [$tag['round'], $asset];
-                }
+            if (($round = self::savedRound($stamp)) && ($stamp['thread']['id'] ?? null) === $thread) {
+                $rounds[$round] ??= $asset;
             }
         }
 
+        $origin = $this->origins($thread)[0] ?? null;
+
         // A round saved as an image of its own comes before a copy of it.
-        foreach ($revisions as [$round, $asset]) {
+        foreach ($this->revisions($thread) as $asset) {
+            $round = ((array) $asset->get(self::REVISION_KEY))['round'];
+
             if ($round === 'origin') {
                 $origin ??= $asset;
             } else {
@@ -73,6 +68,33 @@ class ThreadAssets
         }
 
         return ['rounds' => $rounds, 'origin' => $origin];
+    }
+
+    /**
+     * Every revision asset of a thread.
+     *
+     * @return array<int, AssetContract>
+     */
+    public function revisions(string $thread): array
+    {
+        return array_values(array_filter($this->stamped(self::REVISION_KEY), function (AssetContract $asset) use ($thread) {
+            $tag = (array) $asset->get(self::REVISION_KEY);
+
+            return ($tag['thread'] ?? null) === $thread && is_string($tag['round'] ?? null);
+        }));
+    }
+
+    /**
+     * Every asset tagged as an original of the thread.
+     *
+     * @return array<int, AssetContract>
+     */
+    public function origins(string $thread): array
+    {
+        return array_values(array_filter(
+            $this->stamped(self::ORIGIN_KEY),
+            fn (AssetContract $asset) => array_key_exists($thread, (array) $asset->get(self::ORIGIN_KEY)),
+        ));
     }
 
     /**
@@ -92,5 +114,18 @@ class ThreadAssets
         $id = is_array($last) ? ($last['id'] ?? null) : null;
 
         return is_string($id) && BatchStore::validId($id) ? $id : null;
+    }
+
+    /**
+     * Every asset, in every container, that has the given key.
+     *
+     * @return array<int, AssetContract>
+     */
+    protected function stamped(string $key): array
+    {
+        return AssetContainer::all()
+            ->flatMap(fn ($container) => $container->queryAssets()->whereNotNull($key)->get()->all())
+            ->values()
+            ->all();
     }
 }

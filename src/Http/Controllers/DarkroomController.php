@@ -10,6 +10,7 @@ use D3Creative\Darkroom\History\Trash;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use D3Creative\Darkroom\Prompts\PromptStore;
+use D3Creative\Darkroom\Revisions\RevisionHistory;
 use D3Creative\Darkroom\Usage\UsageLog;
 use Inertia\Inertia;
 use Statamic\Facades\User;
@@ -38,7 +39,12 @@ class DarkroomController extends CpController
         SavedImages $history,
         UsageLog $usage,
         Trash $trash,
+        RevisionHistory $revisions,
     ) {
+        // Before pruning, so rounds still in temporary storage can fill in
+        // the history of images saved before it was kept. Once only.
+        $revisions->backfill();
+
         $batches->prune();
 
         // As with batches, a site without the scheduler still has its trash

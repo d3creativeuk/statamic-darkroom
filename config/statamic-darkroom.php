@@ -289,6 +289,13 @@ return [
         // Google keeps a stored conversation for up to 55 days. Older ones
         // are not tried; the round starts fresh instead.
         'remember_days' => 50,
+        // When a revised image is saved, the original and every round that
+        // led to it are saved too, at full size, in this folder beside it, so
+        // its story in History keeps its pictures.
+        'history' => [
+            'save' => env('DARKROOM_SAVE_REVISION_HISTORY', true),
+            'folder' => 'revisions',
+        ],
     ],
 
     /*

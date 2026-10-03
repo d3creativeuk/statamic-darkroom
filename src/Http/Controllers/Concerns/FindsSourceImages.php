@@ -6,6 +6,8 @@ use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Generations\ItemStatus;
 use D3Creative\Darkroom\History\SavedImages;
 use D3Creative\Darkroom\Models\ModelRegistry;
+use D3Creative\Darkroom\Revisions\RevisionHistory;
+use D3Creative\Darkroom\Revisions\ThreadAssets;
 use Illuminate\Support\Facades\Gate;
 use Statamic\Facades\Asset;
 use Statamic\Facades\User;
@@ -64,22 +66,29 @@ trait FindsSourceImages
         abort_unless(Gate::forUser(User::current())->allows('view', $asset), 403);
 
         $stamp = (array) $asset->get(SavedImages::KEY);
+        // A kept step of a revised image (RevisionHistory) is tagged with
+        // what made it instead.
+        $made = $stamp ?: (array) $asset->get(ThreadAssets::REVISION_KEY);
         $extension = strtolower((string) $asset->extension());
         $extension = $extension === 'jpeg' ? 'jpg' : $extension;
 
         return [
             'binary' => $asset->contents(),
             'mime' => $asset->mimeType(),
-            'prompt' => $stamp['prompt'] ?? $asset->basename(),
-            'model' => $stamp['model'] ?? null,
-            'quality' => $stamp['quality'] ?? null,
-            'aspect_ratio' => $stamp['aspect_ratio'] ?? ModelRegistry::AUTO,
+            'prompt' => $made['prompt'] ?? $asset->basename(),
+            'model' => $made['model'] ?? null,
+            'quality' => $made['quality'] ?? null,
+            'aspect_ratio' => $made['aspect_ratio'] ?? ModelRegistry::AUTO,
             // Saved in the same type as the original where that is one on offer.
             'file_type' => array_key_exists($extension, $config['file_types'] ?? [])
                 ? $extension
                 : ($config['defaults']['file_type'] ?? 'jpg'),
             'container' => $asset->containerHandle(),
-            'folder' => trim((string) $asset->folder(), '/.'),
+            // A kept step lives in a revisions folder; what is made from it
+            // belongs beside the image that folder is for.
+            'folder' => $made === $stamp || basename(trim((string) $asset->folder(), '/.')) !== app(RevisionHistory::class)->folderName()
+                ? trim((string) $asset->folder(), '/.')
+                : trim(dirname(trim((string) $asset->folder(), '/.')), '/.'),
             'instruction_id' => $stamp['instruction'] ?? null,
             'instruction_title' => $stamp['instruction_title'] ?? null,
             'asset' => $asset,

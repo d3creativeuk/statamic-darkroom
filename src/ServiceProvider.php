@@ -15,8 +15,14 @@ use D3Creative\Darkroom\Imaging\ImageEncoder;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use D3Creative\Darkroom\Prompts\PromptStore;
+use D3Creative\Darkroom\Revisions\ReleaseOnDelete;
+use D3Creative\Darkroom\Revisions\RevisionHistory;
+use D3Creative\Darkroom\Revisions\ThreadAssets;
 use D3Creative\Darkroom\Usage\UsageLog;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Event;
+use Statamic\Events\AssetDeleted;
+use Statamic\Events\AssetDeleting;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
 use Statamic\Providers\AddonServiceProvider;
@@ -51,10 +57,15 @@ class ServiceProvider extends AddonServiceProvider
         $this->app->bind(AltTextWriter::class, fn () => new AltTextWriter($config()));
         $this->app->bind(SavedImages::class, fn ($app) => new SavedImages($app->make(ModelRegistry::class), $config()));
         $this->app->bind(Trash::class, fn ($app) => new Trash($app->make(Usages::class), $config()));
+        $this->app->bind(RevisionHistory::class, fn ($app) => new RevisionHistory($app->make(BatchStore::class), $app->make(ThreadAssets::class), $app->make(Usages::class), $config()));
     }
 
     public function bootAddon()
     {
+        // Deleting a saved revised image releases the steps kept for it.
+        Event::listen(AssetDeleting::class, [ReleaseOnDelete::class, 'deleting']);
+        Event::listen(AssetDeleted::class, [ReleaseOnDelete::class, 'deleted']);
+
         Permission::extend(function () {
             Permission::group('darkroom', 'Darkroom', function () {
                 // Spend lists every prompt behind it, so seeing other people's

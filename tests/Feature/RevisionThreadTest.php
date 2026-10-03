@@ -198,7 +198,8 @@ class RevisionThreadTest extends TestCase
 
         $this->assertSame([$first['id'], $second['id']], array_column($feed['rounds'], 'id'));
         $this->assertNull($feed['rounds'][0]['batch']);
-        $this->assertNull($feed['rounds'][0]['asset']);
+        // Round 1's picture was kept in the library when round 2 was saved.
+        $this->assertSame('assets::blog/revisions/second-round-1.jpg', $feed['rounds'][0]['asset']['id']);
         $this->assertSame($id, $feed['rounds'][1]['asset']['id']);
         $this->assertSame(cp_route('darkroom.assets.preview', ['asset' => $id]), $feed['rounds'][1]['asset']['preview']);
     }
