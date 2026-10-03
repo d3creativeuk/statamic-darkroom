@@ -58,6 +58,9 @@ class RevisionController extends CpController
             'notes.*.y' => ['required', 'numeric', 'between:0,1'],
             'notes.*.text' => ['required', 'string', 'max:500'],
             'general' => ['nullable', 'string', 'max:2000'],
+            // The thread the Revise panel is showing, so revising its
+            // original again stays in it.
+            'thread' => ['nullable', 'string', 'size:26'],
         ]);
 
         $notes = collect($data['notes'] ?? [])
@@ -108,7 +111,7 @@ class RevisionController extends CpController
             'instruction_title' => $source['instruction_title'] ?? null,
             'revision' => ['notes' => $notes, 'general' => $general !== '' ? $general : null],
             // The rounds this one follows on from, so the feed can show them.
-            'thread' => $threads->next($source),
+            'thread' => $threads->next($source, $data['thread'] ?? null, (string) $user->id()),
             // The conversation it could carry on, if memory allows when it runs.
             'memory' => $threads->candidate($source),
             'source_mime' => $source['mime'],

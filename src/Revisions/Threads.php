@@ -31,17 +31,20 @@ class Threads
         protected BatchStore $store,
         protected ModelRegistry $models,
         protected BatchPresenter $presenter,
+        protected ThreadAssets $assets,
     ) {}
 
     /**
      * The thread a new round joins, given the image it starts from (as found
      * by FindsSourceImages): the thread of a round, the thread stamped on a
-     * saved round, or a new one.
+     * saved round, the thread the Revise panel is showing when the image is
+     * that thread's original, or a new one.
      *
      * @param  array<string, mixed>  $source
+     * @param  ?string  $join  The thread the panel is showing, if any.
      * @return array{id: string, parent: ?string, origin: ?array<string, mixed>, ancestors: array<int, array<string, mixed>>}
      */
-    public function next(array $source): array
+    public function next(array $source, ?string $join = null, ?string $userId = null): array
     {
         $base = $source['base']['batch'] ?? null;
 
@@ -54,12 +57,8 @@ class Threads
             ];
         }
 
-        if ($base) {
-            return $this->start(['batch' => $base['id'], 'index' => (int) $source['base']['item']['index']]);
-        }
-
         $asset = $source['asset'] ?? null;
-        $stamped = $this->stamped($source['stamp'] ?? [], $asset);
+        $stamped = $base ? null : $this->stamped($source['stamp'] ?? [], $asset);
 
         if ($stamped) {
             return [
@@ -70,7 +69,15 @@ class Threads
             ];
         }
 
-        return $this->start($asset ? ['asset' => $asset->id()] : null);
+        if ($join !== null && $userId !== null && ($joined = $this->joined($join, $userId, $source))) {
+            return $joined;
+        }
+
+        return $this->start(match (true) {
+            (bool) $base => ['batch' => $base['id'], 'index' => (int) $source['base']['item']['index']],
+            (bool) $asset => ['asset' => $asset->id()],
+            default => null,
+        });
     }
 
     /**
@@ -143,7 +150,8 @@ class Threads
             return null;
         }
 
-        $rounds = array_map(fn (array $round) => $this->withAsset($round), $this->rounds($batch['thread']['ancestors'] ?? []));
+        $found = $this->assets->find($id);
+        $rounds = array_map(fn (array $round) => $this->withAsset($round, $found), $this->rounds($batch['thread']['ancestors'] ?? []));
 
         // This image's own entry. Its asset id is not known until it has been
         // saved, so the feed takes it from the asset the stamp is read from.
@@ -156,7 +164,7 @@ class Threads
 
         return array_filter([
             'id' => $id,
-            'origin' => $this->savedOrigin($this->origin($batch['thread']['origin'] ?? null)),
+            'origin' => $found['origin'] ? ['asset' => $found['origin']->id()] : $this->savedOrigin($this->origin($batch['thread']['origin'] ?? null)),
             'rounds' => $this->cap([...$rounds, $own]),
         ], fn ($value) => $value !== null);
     }
@@ -209,6 +217,16 @@ class Threads
             return null;
         }
 
+        // Saved rounds and the original are found by their stamps, so a live
+        // batch's record of where it was saved cannot point at a file that
+        // has since been moved or renamed.
+        $found = $this->assets->find($threadId);
+        $rounds = array_map(fn (array $round) => $this->withAsset($round, $found), $rounds);
+
+        if ($found['origin']) {
+            $origin = ['asset' => $found['origin']->id()];
+        }
+
         uasort($rounds, fn ($a, $b) => [$a['at'], $a['id']] <=> [$b['at'], $b['id']]);
 
         return [
@@ -217,6 +235,37 @@ class Threads
             'origin' => $this->presentOrigin($origin, $user),
             'rounds' => array_values(array_map(fn (array $round) => $this->presentRound($round, $user), $rounds)),
         ];
+    }
+
+    /**
+     * Starting again from a thread's original keeps the new round in that
+     * thread, so the panel showing it can show the new round too. Only when
+     * this user has rounds in it and the image really is where it started.
+     *
+     * @param  array<string, mixed>  $source
+     * @return array<string, mixed>|null
+     */
+    protected function joined(string $thread, string $userId, array $source): ?array
+    {
+        $live = $this->store->threadFor($userId, $thread);
+        $origin = $live ? $this->origin($live[0]['thread']['origin'] ?? null) : null;
+
+        if (! $origin) {
+            return null;
+        }
+
+        $base = $source['base'] ?? null;
+        $asset = $source['asset'] ?? null;
+
+        $matches = match (true) {
+            (bool) $base => ($origin['batch'] ?? null) === $base['batch']['id'] && ($origin['index'] ?? null) === (int) $base['item']['index'],
+            (bool) $asset => ($origin['asset'] ?? null) === $asset->id()
+                || array_key_exists($thread, (array) (((array) $asset->get(SavedImages::KEY))['origin_of'] ?? []))
+                || (isset($origin['batch']) && ($this->store->item($origin['batch'], $origin['index'])['asset']['id'] ?? null) === $asset->id()),
+            default => false,
+        };
+
+        return $matches ? ['id' => $thread, 'parent' => null, 'origin' => $origin, 'ancestors' => []] : null;
     }
 
     /**
@@ -337,12 +386,18 @@ class Threads
     }
 
     /**
+     * A round with the asset it was saved as, if any: found by its stamp
+     * first, since stored ids go stale when an asset is moved or renamed.
+     *
      * @param  array<string, mixed>  $round
+     * @param  array{rounds: array<string, AssetContract>, origin: ?AssetContract}  $found
      * @return array<string, mixed>
      */
-    protected function withAsset(array $round): array
+    protected function withAsset(array $round, array $found): array
     {
-        if (! isset($round['asset']) && ($asset = $this->store->item($round['id'], 1)['asset']['id'] ?? null)) {
+        if (isset($found['rounds'][$round['id']])) {
+            $round['asset'] = $found['rounds'][$round['id']]->id();
+        } elseif (! isset($round['asset']) && ($asset = $this->store->item($round['id'], 1)['asset']['id'] ?? null)) {
             $round['asset'] = $asset;
         }
 

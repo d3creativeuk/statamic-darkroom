@@ -252,6 +252,79 @@ class RevisionThreadTest extends TestCase
     }
 
     #[Test]
+    public function a_saved_round_is_still_found_after_it_is_moved()
+    {
+        $first = $this->round($this->target($this->draft()));
+        $id = $this->save($first, 'first');
+        $this->round(['asset' => $id], 'Add a red kite');
+
+        // Moved in the asset browser: its id is its path, so the id the batch
+        // recorded at save time no longer exists.
+        Asset::find($id)->move('moved');
+        $moved = 'assets::moved/first.jpg';
+        $this->assertNull(Asset::find($id));
+
+        $rounds = $this->feed($first['thread']['id'])->assertOk()->json('rounds');
+
+        $this->assertSame($moved, $rounds[0]['asset']['id']);
+        $this->assertSame(cp_route('darkroom.assets.preview', ['asset' => $moved]), $rounds[0]['asset']['preview']);
+    }
+
+    #[Test]
+    public function revising_the_original_again_stays_in_the_thread_the_panel_is_showing()
+    {
+        $draft = $this->draft();
+        $first = $this->round($this->target($draft));
+
+        $again = $this->postJson(cp_route('darkroom.revisions.store'), [
+            ...$this->target($draft),
+            'thread' => $first['thread']['id'],
+            'model' => 'gemini-3-pro-image',
+            'quality' => '1K',
+            'notes' => [['x' => 0.5, 'y' => 0.5, 'text' => 'Try a kite instead']],
+        ])->assertCreated()->json();
+
+        $this->assertSame($first['thread']['id'], $again['thread']['id']);
+        $this->assertNull($again['thread']['parent']);
+        $this->assertSame([$first['id'], $again['id']], array_column($this->feed($first['thread']['id'])->json('rounds'), 'id'));
+
+        // Not that thread's original: a thread of its own.
+        $other = $this->postJson(cp_route('darkroom.revisions.store'), [
+            ...$this->target($this->draft()),
+            'thread' => $first['thread']['id'],
+            'model' => 'gemini-3-pro-image',
+            'quality' => '1K',
+            'notes' => [['x' => 0.5, 'y' => 0.5, 'text' => 'Something else']],
+        ])->assertCreated()->json();
+
+        $this->assertNotSame($first['thread']['id'], $other['thread']['id']);
+    }
+
+    #[Test]
+    public function a_thread_being_worked_on_is_not_pruned_from_under_it()
+    {
+        $this->travelTo('2026-10-03 09:00:00');
+        $first = $this->round($this->target($this->draft()));
+
+        $this->travelTo('2026-10-03 20:00:00');
+        $second = $this->round($this->target($first), 'Make the city taller');
+
+        // A day after round 1, but round 2 is only 13 hours old.
+        $this->travelTo('2026-10-04 09:30:00');
+        app(BatchStore::class)->prune();
+
+        $this->assertNotNull(app(BatchStore::class)->find($first['id']));
+        $this->assertNotNull(app(BatchStore::class)->original($first['id'], 1));
+
+        // A day after the last round, the whole thread goes.
+        $this->travelTo('2026-10-04 20:30:00');
+        app(BatchStore::class)->prune();
+
+        $this->assertNull(app(BatchStore::class)->find($first['id']));
+        $this->assertNull(app(BatchStore::class)->find($second['id']));
+    }
+
+    #[Test]
     public function a_thread_that_does_not_hold_together_on_an_asset_starts_a_new_one()
     {
         Storage::disk('assets')->put('blog/odd.jpg', $this->jpeg(80, 60));

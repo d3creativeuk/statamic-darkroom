@@ -288,12 +288,30 @@ class BatchStore
         $cutoff = now()->getTimestamp() - ($hours * 3600);
         $pruned = 0;
 
+        $batches = [];
+
         foreach ($this->ids() as $id) {
-            $batch = $this->readJson("{$id}/batch.json");
+            $batches[$id] = $this->readJson("{$id}/batch.json");
+        }
+
+        // The rounds of a revision thread stay as long as anyone is still
+        // working on it, so a long session cannot lose its first rounds
+        // before a later one is saved (and their images with it).
+        $active = [];
+
+        foreach ($batches as $batch) {
+            if ($batch && ($thread = self::threadOf($batch))) {
+                $active[$thread] = max($active[$thread] ?? 0, (int) ($batch['created_at'] ?? 0));
+            }
+        }
+
+        foreach ($batches as $id => $batch) {
+            $thread = $batch ? self::threadOf($batch) : null;
+            $age = $thread ? $active[$thread] : (int) ($batch['created_at'] ?? 0);
 
             // A directory with no readable batch.json is debris from an
             // interrupted write, so it goes too.
-            if (! $batch || (int) ($batch['created_at'] ?? 0) < $cutoff) {
+            if (! $batch || $age < $cutoff) {
                 $this->disk()->deleteDirectory($this->path($id));
                 $pruned++;
             }

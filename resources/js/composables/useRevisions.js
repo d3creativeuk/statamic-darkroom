@@ -49,7 +49,10 @@ export function useRevisions({ batches, put, revise, urls }) {
     // A round's image: its preview while unsaved, the asset once saved.
     function describe(round) {
         const item = round.batch?.items[0] ?? null;
-        const assetId = item?.asset?.id ?? round.asset?.id ?? null;
+        // The server finds saved rounds by their stamp, so its answer is
+        // right even after the image was moved or renamed; the batch's own
+        // record of where it was saved is not.
+        const assetId = round.asset?.id ?? item?.asset?.id ?? null;
         const status = item?.status ?? (assetId ? 'saved' : 'gone');
 
         let image = null;
@@ -180,7 +183,9 @@ export function useRevisions({ batches, put, revise, urls }) {
     }
 
     async function send(changes) {
-        const batch = await revise({ ...state.base.target, ...changes });
+        // Starting again from the original stays in this thread.
+        const thread = state.base.key === 'origin' && state.threadId ? { thread: state.threadId } : {};
+        const batch = await revise({ ...state.base.target, ...thread, ...changes });
 
         state.threadId ??= batch.thread?.id ?? null;
         state.waitingFor = { round: batch.id, from: state.base.key };
