@@ -371,6 +371,17 @@ class Threads
     }
 
     /**
+     * The line of rounds stamped on a saved image, checked, with that image
+     * as its last round. Null when it has none or it does not hold together.
+     *
+     * @return array{id: string, origin: ?array<string, mixed>, rounds: array<int, array<string, mixed>>}|null
+     */
+    public function lineOf(AssetContract $asset): ?array
+    {
+        return $this->stamped((array) $asset->get(SavedImages::KEY), $asset);
+    }
+
+    /**
      * Rounds read back from a batch or an asset's YAML, reduced to what is
      * known to be well formed. Anything else is dropped rather than trusted.
      *

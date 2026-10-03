@@ -15,7 +15,7 @@ const props = defineProps({
     disabled: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['reuse', 'upscale', 'revise', 'open', 'page', 'per-page', 'trash']);
+const emit = defineEmits(['reuse', 'upscale', 'revise', 'open', 'story', 'page', 'per-page', 'trash']);
 
 // Searches prompts, filenames, alt text and instruction titles. The page
 // does the fetching.
@@ -111,8 +111,15 @@ function trashSelected() {
                     />
                 </div>
 
-                <!-- Opens core's asset editor over this page rather than leaving it. -->
-                <button type="button" class="dr-history-thumb" :aria-label="__('Open :path', { path: item.path })" @click="emit('open', item)">
+                <!-- A revised image opens its story, which links on to the asset
+                     editor. Anything else opens core's asset editor over this
+                     page rather than leaving it. -->
+                <button
+                    type="button"
+                    class="dr-history-thumb"
+                    :aria-label="item.thread ? __('Show how :path was made', { path: item.path }) : __('Open :path', { path: item.path })"
+                    @click="emit(item.thread ? 'story' : 'open', item)"
+                >
                     <img :src="item.thumbnail" :alt="item.alt || item.prompt" loading="lazy" />
                 </button>
 
@@ -134,7 +141,7 @@ function trashSelected() {
                         <Badge v-if="item.upscaledFrom" size="sm" color="blue">
                             {{ __('Upscaled from :size', { size: item.upscaledFrom }) }}
                         </Badge>
-                        <Badge v-if="item.revision" size="sm" color="blue">{{ __('Revised') }}</Badge>
+                        <Badge v-if="item.revision && !item.thread" size="sm" color="blue">{{ __('Revised') }}</Badge>
                         <Badge v-if="item.instructionTitle" size="sm" icon="ai-sparks">{{ item.instructionTitle }}</Badge>
                     </div>
 
@@ -150,6 +157,10 @@ function trashSelected() {
                             {{ __('Revise') }}
                         </Button>
                     </ButtonGroup>
+
+                    <Button v-if="item.thread" class="dr-history-story" size="xs" variant="ghost" icon="history" @click="emit('story', item)">
+                        {{ __('Revisions (:n)', { n: item.rounds }) }}
+                    </Button>
                 </div>
             </article>
         </div>
@@ -268,6 +279,11 @@ function trashSelected() {
 /* Core's ButtonGroup lays out and joins the buttons; this only spaces it. */
 .dr-history-actions {
     margin-top: 0.25rem;
+}
+
+/* Its own line, so the actions above never have to squeeze in a fourth. */
+.dr-history-story {
+    align-self: flex-start;
 }
 
 .dr-history-pagination {

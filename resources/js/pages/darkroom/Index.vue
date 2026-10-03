@@ -21,6 +21,7 @@ import AssetViewer from '../../components/AssetViewer.vue';
 import FolderPicker from '../../components/FolderPicker.vue';
 import History from '../../components/History.vue';
 import RemovalDialog from '../../components/RemovalDialog.vue';
+import RevisionStory from '../../components/RevisionStory.vue';
 import RevisionThread from '../../components/RevisionThread.vue';
 import ResultsGrid from '../../components/ResultsGrid.vue';
 import SavedPrompts from '../../components/SavedPrompts.vue';
@@ -46,6 +47,9 @@ const props = defineProps({
     history: { type: Object, required: true },
     trash: { type: Array, default: () => [] },
     trashDays: { type: Number, default: 30 },
+    // Where a revised image's earlier steps are kept when it is saved, or
+    // null when they are not.
+    revisionHistory: { type: Object, default: null },
     usage: { type: Array, required: true },
     usageIsEveryones: { type: Boolean, default: false },
     urls: { type: Object, required: true },
@@ -480,6 +484,31 @@ function chooseFolder(entries) {
     picker.open = true;
 }
 
+// Saving a revised round keeps the steps that led to it too, which is worth
+// knowing before choosing where it goes.
+const pickerNote = computed(() => {
+    if (!props.revisionHistory) {
+        return null;
+    }
+
+    const depths = picker.pending
+        .map(([item]) => batches.value.find((batch) => batch.items.some((candidate) => candidate.urls?.save === item.urls?.save))?.thread?.depth)
+        .filter(Boolean);
+    const folder = props.revisionHistory.folder;
+
+    if (!depths.length) {
+        return null;
+    }
+
+    if (picker.pending.length > 1) {
+        return __('The images that led to a revised image are kept too, in a “:folder” folder beside it.', { folder });
+    }
+
+    return depths[0] === 1
+        ? __('The image it was revised from is kept too, in a “:folder” folder beside it.', { folder })
+        : __('The :n images that led to it are kept too, in a “:folder” folder beside it.', { n: depths[0], folder });
+});
+
 function saveTo({ container, folder }) {
     form.container = container;
     form.folder = folder;
@@ -572,6 +601,75 @@ function reviseSaved(item) {
         asset: item.thread ? item.id : null,
         prompt: item.prompt,
     });
+}
+
+// The story of a saved revised image, opened from its History card.
+const story = reactive({ open: false, item: null, data: null, loading: false });
+
+async function openStory(item) {
+    Object.assign(story, { open: true, item, data: null, loading: true });
+
+    try {
+        const data = await http('GET', `${props.urls.story}?asset=${encodeURIComponent(item.id)}`);
+
+        // Another card may have been opened while this one loaded.
+        if (story.item === item) {
+            story.data = data;
+        }
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+        story.open = false;
+    } finally {
+        story.loading = false;
+    }
+}
+
+function storyEdit() {
+    story.open = false;
+    openAsset(story.item);
+}
+
+function storyRevise() {
+    story.open = false;
+    reviseSaved(story.item);
+}
+
+async function forgetStory() {
+    acting.value = true;
+
+    try {
+        const { deleted, kept } = await http('POST', props.urls.storyForget, { asset: story.item.id });
+
+        story.open = false;
+
+        Statamic.$toast.success(
+            deleted.length === 0
+                ? __('Deleted the revision history.')
+                : deleted.length === 1
+                  ? __('Deleted the revision history and 1 earlier image.')
+                  : __('Deleted the revision history and :n earlier images.', { n: deleted.length }),
+        );
+
+        const reasons = {
+            used: (paths) => __('Kept because a page uses it: :paths', { paths }),
+            shared: (paths) => __('Kept for another image’s story: :paths', { paths }),
+            permission: (paths) => __('Kept because you may not delete it: :paths', { paths }),
+        };
+
+        Object.entries(reasons).forEach(([reason, message]) => {
+            const paths = kept.filter((image) => image.reason === reason).map((image) => image.path);
+
+            if (paths.length) {
+                Statamic.$toast.info(message(paths.join(', ')));
+            }
+        });
+
+        await refreshHistory();
+    } catch (e) {
+        Statamic.$toast.error(e.message);
+    } finally {
+        acting.value = false;
+    }
 }
 
 async function sendRound(changes) {
@@ -846,6 +944,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         :can-upscale="canUpscale"
                         @reuse="reuse"
                         @open="openAsset"
+                        @story="openStory"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
                         @revise="reviseSaved"
                         @page="historyPage"
@@ -885,8 +984,20 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :container="form.container"
             :folder="form.folder"
             :count="picker.pending.length"
+            :note="pickerNote"
             :folders-url="urls.folders"
             @choose="saveTo"
+        />
+
+        <RevisionStory
+            v-model:open="story.open"
+            :item="story.item"
+            :story="story.data"
+            :loading="story.loading"
+            :busy="!ready || generating || submitting || acting"
+            @edit="storyEdit"
+            @revise="storyRevise"
+            @forget="forgetStory"
         />
 
         <RevisionThread

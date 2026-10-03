@@ -7,6 +7,7 @@ use D3Creative\Darkroom\Http\Controllers\InstructionController;
 use D3Creative\Darkroom\Http\Controllers\ItemController;
 use D3Creative\Darkroom\Http\Controllers\PromptController;
 use D3Creative\Darkroom\Http\Controllers\RevisionController;
+use D3Creative\Darkroom\Http\Controllers\StoryController;
 use D3Creative\Darkroom\Http\Controllers\TrashController;
 use D3Creative\Darkroom\Http\Controllers\UpscaleController;
 use D3Creative\Darkroom\Http\Controllers\UsageController;
@@ -35,6 +36,15 @@ Route::middleware('can:use darkroom')->prefix('darkroom')->name('darkroom.')->gr
         ->where('thread', '[0-9a-z]{26}')
         ->middleware('throttle:60,1,darkroom.threads')
         ->name('threads.show');
+
+    // How a saved revised image was made, and deleting that history.
+    Route::get('story', [StoryController::class, 'show'])
+        ->middleware('throttle:120,1,darkroom.story')
+        ->name('story.show');
+
+    Route::post('story/forget', [StoryController::class, 'forget'])
+        ->middleware('throttle:30,1,darkroom.story.forget')
+        ->name('story.forget');
 
     Route::get('assets/preview', [RevisionController::class, 'preview'])
         ->middleware('throttle:120,1,darkroom.asset-preview')

@@ -92,6 +92,8 @@ class DarkroomController extends CpController
             'history' => $history->page($user),
             'trash' => $trash->list($user),
             'trashDays' => $trash->retentionDays(),
+            // Whether saving a revised image keeps its earlier steps, and where.
+            'revisionHistory' => $revisions->enabled() ? ['folder' => $revisions->folderName()] : null,
             'usage' => $usage->months(user: UsageLog::scopeFor($user)),
             'usageIsEveryones' => UsageLog::scopeFor($user) === null,
             'urls' => [
@@ -100,6 +102,8 @@ class DarkroomController extends CpController
                 'revisions' => cp_route('darkroom.revisions.store'),
                 'threads' => cp_route('darkroom.threads.show', '__thread__'),
                 'assetPreview' => cp_route('darkroom.assets.preview'),
+                'story' => cp_route('darkroom.story.show'),
+                'storyForget' => cp_route('darkroom.story.forget'),
                 'folders' => cp_route('darkroom.folders', '__container__'),
                 'prompts' => cp_route('darkroom.prompts.store'),
                 'instructions' => cp_route('darkroom.instructions.store'),

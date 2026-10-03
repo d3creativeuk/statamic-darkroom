@@ -16,6 +16,8 @@ const props = defineProps({
     container: { type: String, default: null },
     folder: { type: String, default: '' },
     count: { type: Number, default: 1 },
+    // Anything else saving these images does, said under where they go.
+    note: { type: String, default: null },
     // Lists a container's folders; "__container__" is replaced by its handle.
     foldersUrl: { type: String, required: true },
 });
@@ -173,14 +175,10 @@ function choose() {
             </div>
 
             <div class="flex items-center justify-between border-t bg-gray-100 dark:bg-gray-850 dark:border-gray-700 px-4 py-2 sm:p-4">
-                <div
-                    class="dark:text-gray-200 text-sm text-gray-700"
-                    v-text="
-                        count > 1
-                            ? __('Save :n images to :where', { n: count, where })
-                            : __('Save to :where', { where })
-                    "
-                />
+                <div class="dark:text-gray-200 text-sm text-gray-700">
+                    <div v-text="count > 1 ? __('Save :n images to :where', { n: count, where }) : __('Save to :where', { where })" />
+                    <div v-if="note" class="text-xs opacity-75" v-text="note" />
+                </div>
 
                 <div class="flex items-center space-x-3">
                     <Button variant="ghost" @click="open = false">{{ __('Cancel') }}</Button>

@@ -66,6 +66,9 @@ class PageTest extends TestCase
             ->has('urls.usage')
             ->has('urls.threads')
             ->has('urls.assetPreview')
+            ->has('urls.story')
+            ->has('urls.storyForget')
+            ->where('revisionHistory', ['folder' => 'revisions'])
         );
     }
 
@@ -212,7 +215,7 @@ class PageTest extends TestCase
             }
         }
 
-        $this->assertCount(28, $buckets);
+        $this->assertCount(30, $buckets);
         $this->assertSame(array_values($buckets), array_values(array_unique($buckets)), 'Two routes share a throttle bucket.');
     }
 
