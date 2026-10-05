@@ -5,10 +5,11 @@ import RevisionRound from './RevisionRound.vue';
 import { pixelSize, usd } from '../composables/format.js';
 
 /**
- * The Revise panel: the image being worked on, with notes pinned to it, beside
- * a feed of every round of revising it. The panel stays open between rounds.
- * Positions are kept as a share of the image's width and height, so they mean
- * the same at any size.
+ * The Revise panel: one feed of every round of revising an image, newest
+ * first, ending with the original. The card being revised shows its image to
+ * pin notes on, with the boxes for the next round under it. The panel stays
+ * open between rounds. Positions are kept as a share of the image's width and
+ * height, so they mean the same at any size.
  */
 const props = defineProps({
     models: { type: Array, required: true },
@@ -61,32 +62,67 @@ watch(
     { immediate: true },
 );
 
-// Keep the round being worked on in view: on opening, as the feed arrives,
-// as new rounds come in, and as their images load and push it down. Once
-// the feed has been scrolled by hand, it is left where it was put.
+// Every card, newest round first and the original last. An image the feed
+// has no card for, such as a saved image whose own round is not in it, gets
+// one at the top, so there is always an image to pin notes on.
+const cards = computed(() => {
+    const list = [...props.rounds].reverse().map((round) => ({ key: `round:${round.id}`, round, label: null }));
+
+    if (props.origin) {
+        list.push({ key: 'origin', round: props.origin, label: __('Original') });
+    }
+
+    if (props.base && !list.some((card) => card.key === props.base.key)) {
+        list.unshift({ key: props.base.key ?? 'base', round: props.base, label: props.base.name ?? null });
+    }
+
+    return list;
+});
+
+// Keep the card being worked on at the top of the view: on opening, once the
+// feed has loaded and when another is chosen. A round just sent appears at
+// the top of the feed, so that is where the feed goes until the round is
+// ready and becomes the one being worked on. Images loading late can push
+// things down, so this runs again as each one loads. Once the feed has been
+// scrolled by hand, it is left where it was put.
 const following = ref(true);
+let sent = false;
 
 function keepInView() {
     if (!following.value || !feed.value) {
         return;
     }
 
-    const current = feed.value.querySelector('.is-current');
-
-    if (current) {
-        current.scrollIntoView({ block: 'nearest' });
+    if (sent) {
+        feed.value.scrollTop = 0;
     } else {
-        feed.value.scrollTop = feed.value.scrollHeight;
+        feed.value.querySelector('.is-current')?.scrollIntoView({ block: 'start' });
     }
 }
 
-watch(
-    () => [open.value, props.rounds.length, props.base?.key],
-    async () => {
-        following.value = true;
+async function follow() {
+    following.value = true;
 
-        await nextTick();
-        keepInView();
+    await nextTick();
+    keepInView();
+}
+
+watch(
+    () => [open.value, props.base?.key, props.loading],
+    () => {
+        sent = false;
+        follow();
+    },
+);
+
+// The feed loading fills the list too, and that is not a round being sent.
+watch(
+    () => props.rounds.length,
+    (now, before) => {
+        if (now > before && !props.loading) {
+            sent = true;
+            follow();
+        }
     },
 );
 
@@ -118,16 +154,6 @@ const price = computed(() => priceOf(model.value, quality.value));
 
 const written = computed(() => notes.value.filter((note) => note.text.trim()));
 const ready = computed(() => props.base?.target && model.value && quality.value && (written.value.length > 0 || general.value.trim() !== ''));
-
-const workingOn = computed(() => {
-    if (props.base?.key === 'origin') {
-        return __('Revising the original');
-    }
-
-    const round = props.rounds.find((candidate) => `round:${candidate.id}` === props.base?.key);
-
-    return round ? __('Revising round :n', { n: round.number }) : props.base?.name;
-});
 
 async function pin(event) {
     if (notes.value.length >= props.max) {
@@ -173,8 +199,8 @@ function send() {
 </script>
 
 <template>
-    <!-- Full width: the image and the feed both need the room, and a narrower
-         panel runs off the edge of a phone. -->
+    <!-- Full width: the image needs the room, and a narrower panel runs off
+         the edge of a phone. -->
     <Stack v-model:open="open" size="full" inset :show-close-button="false">
         <div v-if="open && base" class="dr-thread">
             <div class="dr-thread-header">
@@ -185,116 +211,101 @@ function send() {
                 <Button variant="ghost" icon="x" :aria-label="__('Close')" @click="open = false" />
             </div>
 
-            <div class="dr-thread-body">
-                <!-- The image the next round starts from, with its pins. -->
-                <div class="dr-thread-canvas">
-                    <p class="dr-thread-working">{{ workingOn }}</p>
+            <div
+                ref="feed"
+                class="dr-thread-body"
+                @load.capture="keepInView"
+                @wheel.passive="following = false"
+                @touchmove.passive="following = false"
+            >
+                <ol class="dr-thread-feed" :aria-busy="loading">
+                    <li v-if="!rounds.length && !loading" class="dr-thread-empty">
+                        <Description>{{ __('Each round you send appears here, with the image that came back. Revise from any of them.') }}</Description>
+                    </li>
 
-                    <div v-if="!base.image" class="dr-thread-waiting" role="status">
-                        {{ __('This round is still being generated. It appears here when it is ready.') }}
-                    </div>
-
-                    <div v-else class="dr-thread-frame" @click="pin">
-                        <img :src="base.image" :alt="__('The image to revise')" draggable="false" />
-
-                        <button
-                            v-for="(note, index) in notes"
-                            :key="note.id"
-                            type="button"
-                            class="dr-thread-pin"
-                            :class="{ 'is-active': active === note.id }"
-                            :style="{ left: `${note.x * 100}%`, top: `${note.y * 100}%` }"
-                            :aria-label="__('Note :n', { n: index + 1 })"
-                            @click.stop="focus(note)"
-                        >
-                            {{ index + 1 }}
-                        </button>
-                    </div>
-
-                    <Description>{{ __('Click the image to pin a numbered note to that spot, then say what to change there.') }}</Description>
-                </div>
-
-                <div class="dr-thread-side">
-                    <ol
-                        ref="feed"
-                        class="dr-thread-feed"
-                        :aria-busy="loading"
-                        @load.capture="keepInView"
-                        @wheel.passive="following = false"
-                        @touchmove.passive="following = false"
+                    <RevisionRound
+                        v-for="card in cards"
+                        :key="card.key"
+                        :round="card.round"
+                        :label="card.label"
+                        :current="card.key === base.key"
+                        :price="priceOf(card.round.model, card.round.quality)"
+                        :busy="busy"
+                        @choose="emit('choose', card.key === 'origin' ? 'origin' : card.round)"
+                        @save="emit('save', card.round)"
+                        @discard="emit('discard', card.round)"
+                        @retry="emit('retry', card.round)"
                     >
-                        <li v-if="origin" class="dr-thread-origin" :class="{ 'is-current': base.key === 'origin' }">
-                            <button
-                                v-if="origin.image"
-                                type="button"
-                                class="dr-thread-origin-image"
-                                :disabled="!origin.target || busy || base.key === 'origin'"
-                                :aria-label="__('Revise the original')"
-                                @click="emit('choose', 'origin')"
-                            >
-                                <img :src="origin.image" alt="" />
-                            </button>
-                            <span>{{ __('Original') }}</span>
-                        </li>
+                        <!-- The image the next round starts from, with its pins.
+                             Until a round sent from here is ready, its card
+                             shows that it is on its way instead. -->
+                        <template v-if="card.key === base.key && base.image" #image>
+                            <div class="dr-thread-frame" @click="pin">
+                                <img :src="base.image" :alt="__('The image to revise')" draggable="false" />
 
-                        <RevisionRound
-                            v-for="round in rounds"
-                            :key="round.id"
-                            :round="round"
-                            :current="base.key === `round:${round.id}`"
-                            :price="priceOf(round.model, round.quality)"
-                            :busy="busy"
-                            @choose="emit('choose', round)"
-                            @save="emit('save', round)"
-                            @discard="emit('discard', round)"
-                            @retry="emit('retry', round)"
-                        />
+                                <button
+                                    v-for="(note, index) in notes"
+                                    :key="note.id"
+                                    type="button"
+                                    class="dr-thread-pin"
+                                    :class="{ 'is-active': active === note.id }"
+                                    :style="{ left: `${note.x * 100}%`, top: `${note.y * 100}%` }"
+                                    :aria-label="__('Note :n', { n: index + 1 })"
+                                    @click.stop="focus(note)"
+                                >
+                                    {{ index + 1 }}
+                                </button>
+                            </div>
+                        </template>
 
-                        <li v-if="!rounds.length && !loading" class="dr-thread-empty">
-                            <Description>{{ __('Each round you send appears here, with the image that came back. Revise from any of them.') }}</Description>
-                        </li>
-                    </ol>
+                        <template v-if="card.key === base.key && base.image" #next>
+                            <div class="dr-thread-next">
+                                <div
+                                    v-for="(note, index) in notes"
+                                    :key="note.id"
+                                    class="dr-thread-note"
+                                    :class="{ 'is-active': active === note.id }"
+                                    @focusin="active = note.id"
+                                >
+                                    <span class="dr-thread-number" aria-hidden="true">{{ index + 1 }}</span>
+                                    <Textarea
+                                        :ref="(el) => (noteFields[note.id] = el)"
+                                        v-model="note.text"
+                                        :rows="1"
+                                        elastic
+                                        :aria-label="__('What to change at note :n', { n: index + 1 })"
+                                        :placeholder="__('What to change here, e.g. remove this door')"
+                                        maxlength="500"
+                                    />
+                                    <Button size="sm" variant="ghost" icon="x" :aria-label="__('Remove note :n', { n: index + 1 })" @click="remove(note)" />
+                                </div>
 
-                    <div class="dr-thread-composer">
-                        <div
-                            v-for="(note, index) in notes"
-                            :key="note.id"
-                            class="dr-thread-note"
-                            :class="{ 'is-active': active === note.id }"
-                            @focusin="active = note.id"
-                        >
-                            <span class="dr-thread-number" aria-hidden="true">{{ index + 1 }}</span>
-                            <Textarea
-                                :ref="(el) => (noteFields[note.id] = el)"
-                                v-model="note.text"
-                                :rows="1"
-                                elastic
-                                :aria-label="__('What to change at note :n', { n: index + 1 })"
-                                :placeholder="__('What to change here, e.g. remove this door')"
-                                maxlength="500"
-                            />
-                            <Button size="sm" variant="ghost" icon="x" :aria-label="__('Remove note :n', { n: index + 1 })" @click="remove(note)" />
-                        </div>
+                                <Field :label="__('Message')" :instructions="__('Optional. Changes for the whole image, or about earlier rounds, such as undo that.')">
+                                    <Textarea v-model="general" :rows="2" elastic maxlength="2000" />
+                                </Field>
 
-                        <Field :label="__('Message')" :instructions="__('Optional. Changes for the whole image, or about earlier rounds, such as undo that.')">
-                            <Textarea v-model="general" :rows="2" elastic maxlength="2000" />
-                        </Field>
-
-                        <div class="dr-thread-settings">
-                            <Field :label="__('Model')" class="dr-thread-setting">
-                                <Select v-model="model" :options="modelOptions" />
-                            </Field>
-                            <Field :label="__('Quality')" class="dr-thread-setting">
-                                <Select v-model="quality" :options="qualityOptions" />
-                            </Field>
-                        </div>
-                    </div>
-                </div>
+                                <Description>
+                                    {{ __('Click the image to pin a numbered note to that spot, then say what to change there. Each round comes back as a new image; nothing you have saved is changed.') }}
+                                </Description>
+                            </div>
+                        </template>
+                    </RevisionRound>
+                </ol>
             </div>
 
-            <div class="dr-thread-footer flex items-center justify-between gap-3 border-t bg-gray-100 dark:bg-gray-850 dark:border-gray-700 px-4 py-2 sm:p-4">
-                <span class="dr-thread-hint">{{ __('Each round comes back as a new image. Nothing you have saved is changed.') }}</span>
-                <div class="flex items-center gap-3">
+            <div class="dr-thread-footer border-t bg-gray-100 dark:bg-gray-850 dark:border-gray-700 px-4 py-2 sm:p-4">
+                <!-- Statamic's Select puts attributes on its wrapper, not the
+                     control, so the names are given by a group around each. -->
+                <div class="dr-thread-settings">
+                    <div role="group" :aria-label="__('Model')" class="dr-thread-model">
+                        <Select v-model="model" :options="modelOptions" />
+                    </div>
+                    <div role="group" :aria-label="__('Quality')" class="dr-thread-quality">
+                        <Select v-model="quality" :options="qualityOptions" />
+                    </div>
+                </div>
+
+                <div class="dr-thread-actions">
                     <Button variant="ghost" @click="open = false">{{ __('Close') }}</Button>
                     <Button variant="primary" :disabled="!ready || busy" @click="send">
                         {{ price === null ? __('Send') : __('Send for about :price', { price: usd(price) }) }}
@@ -335,24 +346,18 @@ function send() {
 .dr-thread-body {
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
-    gap: 1.25rem;
+    overflow: auto;
     padding: 1rem;
 }
 
-.dr-thread-canvas {
-    flex: 3 1 0;
-    min-width: 0;
+.dr-thread-feed {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    overflow: auto;
-}
-
-.dr-thread-working {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: #ff2d55;
+    gap: 1rem;
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 0;
+    list-style: none;
 }
 
 /* Sized by the image, so a pin's percentage lands on the picture. */
@@ -370,18 +375,6 @@ function send() {
     max-width: 100%;
     max-height: 65vh;
     border-radius: 0.5rem;
-}
-
-.dr-thread-waiting {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 12rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    text-align: center;
-    font-size: 0.875rem;
-    background: color-mix(in oklab, currentColor 6%, transparent);
 }
 
 .dr-thread-pin {
@@ -406,63 +399,8 @@ function send() {
     outline-offset: 2px;
 }
 
-.dr-thread-side {
-    flex: 2 1 0;
-    min-width: 18rem;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.dr-thread-feed {
-    flex: 1 1 auto;
-    min-height: 8rem;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin: 0;
-    padding: 0 0.25rem 0 0;
-    list-style: none;
-}
-
-.dr-thread-origin {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-}
-
-.dr-thread-origin-image {
-    width: 4rem;
-    padding: 0;
-    border: 0;
-    border-radius: 0.375rem;
-    overflow: hidden;
-    line-height: 0;
-    cursor: pointer;
-}
-
-.dr-thread-origin-image:disabled {
-    cursor: default;
-}
-
-.dr-thread-origin.is-current .dr-thread-origin-image {
-    outline: 2px solid #ff2d55;
-    outline-offset: 1px;
-}
-
-.dr-thread-origin-image img {
-    width: 100%;
-    height: auto;
-}
-
-.dr-thread-composer {
-    flex: none;
-    max-height: 50%;
-    overflow: auto;
+/* The next round's notes, set apart from the round they are written on. */
+.dr-thread-next {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -502,46 +440,48 @@ function send() {
     font-weight: 600;
 }
 
-.dr-thread-settings {
+/* Model and size on the left, Send on the right; on a phone, the buttons
+   wrap onto a row of their own. */
+.dr-thread-footer {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.75rem;
 }
 
-.dr-thread-setting {
-    flex: 1 1 9rem;
+.dr-thread-settings {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.dr-thread-model {
+    flex: 0 1 13rem;
     min-width: 0;
 }
 
-.dr-thread-hint {
-    font-size: 0.8125rem;
-    opacity: 0.75;
+.dr-thread-quality {
+    flex: 0 1 19rem;
+    min-width: 0;
 }
 
-/* Narrow, the image and the feed stack and the whole body scrolls. */
-@media (max-width: 52rem) {
-    .dr-thread-body {
-        flex-direction: column;
-        overflow: auto;
+.dr-thread-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-inline-start: auto;
+}
+
+@media (max-width: 40rem) {
+    .dr-thread-settings {
+        flex-basis: 100%;
     }
 
-    .dr-thread-canvas,
-    .dr-thread-side {
-        flex: none;
-        min-width: 0;
-        overflow: visible;
-    }
-
-    .dr-thread-feed {
-        overflow: visible;
-    }
-
-    .dr-thread-composer {
-        max-height: none;
-    }
-
-    .dr-thread-hint {
-        display: none;
+    .dr-thread-model,
+    .dr-thread-quality {
+        flex: 1 1 0;
     }
 }
 </style>

@@ -4,10 +4,15 @@ import { Button } from '@statamic/cms/ui';
 import { shortDate, usd } from '../composables/format.js';
 
 /**
- * One round in the Revise panel's feed: what was asked, then what came back.
+ * One card in the Revise panel's feed: what was asked, then what came back.
+ * The round being revised gets the panel's own image to pin notes on, in the
+ * image slot, and the boxes for the next round's notes, in the next slot.
  */
 const props = defineProps({
     round: { type: Object, required: true },
+    // Names a card that is not a round, such as the original. It shows only
+    // its image and whether it is the one being revised.
+    label: { type: String, default: null },
     // Whether this round's image is the one being revised next.
     current: { type: Boolean, default: false },
     // Price of one image at this round's model and size, when the feed did not say.
@@ -20,7 +25,7 @@ const emit = defineEmits(['choose', 'save', 'discard', 'retry']);
 const waiting = computed(() => ['pending', 'generating'].includes(props.round.status));
 
 const meta = computed(() =>
-    [props.round.modelLabel, props.round.qualityLabel, usd(props.round.price ?? props.price)].filter(Boolean).join(' · '),
+    props.label ? '' : [props.round.modelLabel, props.round.qualityLabel, usd(props.round.price ?? props.price)].filter(Boolean).join(' · '),
 );
 
 const memory = computed(
@@ -44,6 +49,10 @@ const elapsed = ref(0);
 let ticker = null;
 
 onMounted(() => {
+    if (props.label) {
+        return;
+    }
+
     const tick = () => (elapsed.value = Math.max(0, Math.round(Date.now() / 1000 - props.round.at)));
 
     tick();
@@ -55,7 +64,11 @@ onBeforeUnmount(() => clearInterval(ticker));
 
 <template>
     <li class="dr-round" :class="{ 'is-current': current }">
-        <div class="dr-round-ask">
+        <p v-if="label" class="dr-round-heading">
+            <strong>{{ label }}</strong>
+        </p>
+
+        <div v-else class="dr-round-ask">
             <p class="dr-round-heading">
                 <strong>{{ __('Round :n', { n: round.number }) }}</strong>
                 <span v-if="round.branched">
@@ -74,21 +87,23 @@ onBeforeUnmount(() => clearInterval(ticker));
         </div>
 
         <div class="dr-round-answer">
-            <button
-                v-if="round.image"
-                type="button"
-                class="dr-round-image"
-                :disabled="!round.target || busy || current"
-                :aria-label="__('Revise from round :n', { n: round.number })"
-                @click="emit('choose')"
-            >
-                <img :src="round.image" alt="" />
-            </button>
-            <div v-else-if="waiting" class="dr-round-placeholder" role="status">{{ __('Generating…') }} {{ elapsed }}s</div>
-            <div v-else-if="round.status === 'failed'" class="dr-round-placeholder dr-round-placeholder--failed">
-                {{ round.item?.error?.message ?? __('This image could not be generated.') }}
-            </div>
-            <div v-else class="dr-round-placeholder">{{ gone }}</div>
+            <slot name="image">
+                <button
+                    v-if="round.image"
+                    type="button"
+                    class="dr-round-image"
+                    :disabled="!round.target || busy || current"
+                    :aria-label="label ? __('Revise from :name', { name: label }) : __('Revise from round :n', { n: round.number })"
+                    @click="emit('choose')"
+                >
+                    <img :src="round.image" alt="" />
+                </button>
+                <div v-else-if="waiting" class="dr-round-placeholder" role="status">{{ __('Generating…') }} {{ elapsed }}s</div>
+                <div v-else-if="round.status === 'failed'" class="dr-round-placeholder dr-round-placeholder--failed">
+                    {{ round.item?.error?.message ?? __('This image could not be generated.') }}
+                </div>
+                <div v-else class="dr-round-placeholder">{{ gone }}</div>
+            </slot>
 
             <p v-if="meta || memory" class="dr-round-meta">
                 {{ meta }}<template v-if="meta && memory"> · </template>{{ memory }}
@@ -97,22 +112,26 @@ onBeforeUnmount(() => clearInterval(ticker));
             <div class="dr-round-actions">
                 <span v-if="current" class="dr-round-current">{{ __('Revising this') }}</span>
                 <Button v-else-if="round.target" size="xs" :disabled="busy" @click="emit('choose')">{{ __('Revise from this') }}</Button>
-                <Button v-if="round.status === 'complete'" size="xs" :disabled="busy" @click="emit('save')">{{ __('Save…') }}</Button>
-                <span v-if="round.status === 'saved'" class="dr-round-saved">{{ __('Saved') }}</span>
-                <Button v-if="round.status === 'failed' && round.item?.error?.retryable" size="xs" icon="sync" :disabled="busy" @click="emit('retry')">
-                    {{ __('Try again') }}
-                </Button>
-                <Button
-                    v-if="round.status === 'complete' || round.status === 'failed'"
-                    size="xs"
-                    variant="ghost"
-                    :disabled="busy"
-                    @click="emit('discard')"
-                >
-                    {{ round.status === 'failed' ? __('Dismiss') : __('Discard') }}
-                </Button>
+                <template v-if="!label">
+                    <Button v-if="round.status === 'complete'" size="xs" :disabled="busy" @click="emit('save')">{{ __('Save…') }}</Button>
+                    <span v-if="round.status === 'saved'" class="dr-round-saved">{{ __('Saved') }}</span>
+                    <Button v-if="round.status === 'failed' && round.item?.error?.retryable" size="xs" icon="sync" :disabled="busy" @click="emit('retry')">
+                        {{ __('Try again') }}
+                    </Button>
+                    <Button
+                        v-if="round.status === 'complete' || round.status === 'failed'"
+                        size="xs"
+                        variant="ghost"
+                        :disabled="busy"
+                        @click="emit('discard')"
+                    >
+                        {{ round.status === 'failed' ? __('Dismiss') : __('Discard') }}
+                    </Button>
+                </template>
             </div>
         </div>
+
+        <slot name="next" />
     </li>
 </template>
 
@@ -124,6 +143,8 @@ onBeforeUnmount(() => clearInterval(ticker));
     padding: 0.75rem;
     border-radius: 0.75rem;
     border: 1px solid color-mix(in oklab, currentColor 12%, transparent);
+    /* The panel scrolls the current card to the top; leave it a margin. */
+    scroll-margin-top: 1rem;
 }
 
 .dr-round.is-current {
@@ -200,9 +221,12 @@ onBeforeUnmount(() => clearInterval(ticker));
     gap: 0.375rem;
 }
 
+/* No taller than the image the panel pins on, so a portrait image does not
+   run off the screen in the wide column. */
 .dr-round-image {
     display: block;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
     padding: 0;
     border: 0;
     border-radius: 0.5rem;
@@ -217,8 +241,9 @@ onBeforeUnmount(() => clearInterval(ticker));
 }
 
 .dr-round-image img {
-    width: 100%;
-    height: auto;
+    display: block;
+    max-width: 100%;
+    max-height: 65vh;
 }
 
 .dr-round-placeholder {
