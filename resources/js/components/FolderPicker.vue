@@ -76,6 +76,33 @@ function goTo(path) {
     browser.value.selectFolder(path);
 }
 
+// Core's browser adds a new folder to the list but stays where it is, so
+// "Save here" still meant the parent, and an image saved straight after
+// Create Folder landed beside the folder made for it. A save dialog moves
+// into a folder as it is made, and so does this. The folders are noted while
+// the name is being typed because core pushes the new one onto the same array.
+let before = null;
+
+watch(
+    () => [browser.value?.creatingFolder, browser.value?.folders],
+    ([creating, folders]) => {
+        const paths = (folders ?? []).map((folder) => folder.path);
+
+        if (creating) {
+            before = paths;
+
+            return;
+        }
+
+        const made = before && paths.find((path) => !before.includes(path));
+        before = null;
+
+        if (made) {
+            browser.value.selectFolder(made);
+        }
+    },
+);
+
 // The browser keeps its own selection list. Nothing is selected here, but it
 // still needs one to write to.
 const selections = ref([]);
