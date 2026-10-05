@@ -6,7 +6,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
 (`composer.json` carries no `version` field).
 
-## [Unreleased]
+## [1.1.0] - 2026-10-05
 
 ### Added
 
@@ -23,6 +23,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 - A saved round that was moved or renamed no longer drops out of its thread.
 - Revising the original again from the Revise panel stays in the same thread instead of starting a new one the panel never showed.
+- An image saved straight after Create Folder in the save picker now goes into that folder, not beside it.
 
 ### Security
 
