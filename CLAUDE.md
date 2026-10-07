@@ -43,6 +43,10 @@ Things that will bite when writing tests:
 - **One `Http::fake` closure per test when rounds talk to each other.** The first matching fake wins, so stacking fakes cannot vary answers by request; branch inside one closure on `previous_interaction_id` and `store` (see `RevisionMemoryTest`), and hand out ids from a counter.
 - **Use `now()`, not `time()`,** anywhere a test needs to travel through time. `BatchStore` does.
 - `generate_presets_on_upload` is switched off in `getEnvironmentSetUp` because Statamic's listener reads it when it subscribes.
+- **Don't move the clock between creating a batch and running its job.** A pending image counts as in progress (`ItemStatus::isGenerating`), so once the clock is more than `timeout` + 60 seconds past its `updated_at`, the job's first read settles it as `timed_out` (`BatchStore::expire`) and nothing is sent. To test what survives a prune, delete the files instead of travelling.
+- **Uploads go with `$this->post(..., ['Accept' => 'application/json'])`** and an `UploadedFile`; `postJson` cannot carry a file.
+- **`assertJsonValidationErrors` matches substrings**, so assert the whole message when its wording matters, such as a limit: a prefix let "The limit is 0 MB" pass once.
+- **Use different images when asserting order.** Identical bytes pass in any order; `ReferenceTest` gives each reference its own size.
 
 The Vue side has no tests. Verify it in the host CP.
 

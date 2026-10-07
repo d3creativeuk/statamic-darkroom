@@ -12,6 +12,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 - **Reference images.** Give the model up to 14 images to work from as well as the prompt: a style to copy, a product to show, a person or a room to keep. Upload them, drop them on the prompt, or choose them from any asset container you can view, and refer to them in the prompt by number ("in the style of image 1"). Uploads are reduced to a JPEG, kept for a day outside the web root and never added to the asset library, so Glide never processes them. Saved images list their references in History, and Reuse prompt and saved prompts bring back the ones from the library.
 - `darkroom:smoke` takes `--reference=` to send reference images, and shows the input image tokens Google billed.
+- `darkroom:prune` also removes reference images older than the retention period, as opening the page does.
 
 ### Changed
 

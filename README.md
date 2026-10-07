@@ -2,7 +2,7 @@
 
 Generate images with Google's Nano Banana models from the Statamic Control Panel and save them straight into your asset library.
 
-Darkroom uses your own Google API key. You write a prompt, pick a model, aspect ratio and quality, preview what comes back, and save the ones you want into any folder as normal Statamic assets.
+Darkroom uses your own Google API key. You write a prompt, add reference images for the model to work from if you like, pick a model, aspect ratio and quality, preview what comes back, and save the ones you want into any folder as normal Statamic assets.
 
 ![Darkroom by D3 Creative](art/darkroom-art.jpg)
 
@@ -37,7 +37,7 @@ Super users can use Darkroom straight away. Everyone else needs two permissions:
 - **Generate images with Darkroom** (`use darkroom`)
 - Permission to upload to at least one asset container
 
-Only containers a user may upload to are offered as destinations.
+Only containers a user may upload to are offered as destinations. Reference images can be chosen from any container a user may view, which can be more than they may save to: being able to see an image is enough to send it to Google as a reference.
 
 The **Spend** tab shows each user only the images they generated. To let someone see everyone's, give them **See everyone's spend in Darkroom** (`view all darkroom spend`). Super users always see everyone's.
 
@@ -204,6 +204,7 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `temp.retention_hours` | `24` | How long unsaved images are kept |
 | `references.max` | `14` | Most reference images one generation can send. Google's limit is 14 |
 | `references.max_edge` | `1536` | Reference images are reduced to this many pixels on their longest side |
+| `references.max_request_mb` | `18` | A set of reference images larger than this in total, once encoded for sending, is refused. Google refuses requests over 20 MB |
 | `references.max_upload_kb` | `20480` | Largest reference file the server accepts: an upload as your browser sends it, already reduced, or a library image's original file. Your server's own upload limit may be lower |
 | `trash.retention_days` | `30` | How long images wait in Trash before they are deleted |
 | `revise.remember` | `true` | Let revision rounds remember earlier rounds, which keeps them on Google's side for up to 55 days. Also `DARKROOM_REVISION_MEMORY` |
@@ -265,7 +266,7 @@ Darkroom leaves everything it made in place, so you choose what to keep:
 | What | Where | Keep it if |
 |---|---|---|
 | Saved prompts and system instructions | `resources/addons/statamic-darkroom/` | You might reinstall. Darkroom picks them up again |
-| Spend log | `storage/app/statamic-darkroom/usage/` | You want a record of past spend. Everything else under `storage/app/statamic-darkroom/` is unsaved images and test output, and can go |
+| Spend log | `storage/app/statamic-darkroom/usage/` | You want a record of past spend. Everything else under `storage/app/statamic-darkroom/` is unsaved images, reference images and test output, and can go |
 | Config | `config/statamic-darkroom.php` | Only there if you published it |
 | API key | `GEMINI_API_KEY` in `.env`, plus any `DARKROOM_` variables | Something else uses the key |
 | Permission | `use darkroom` in `resources/users/roles.yaml` | Only there if you gave it to a role. It does nothing once Darkroom is gone |
