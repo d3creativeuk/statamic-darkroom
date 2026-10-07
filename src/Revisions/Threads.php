@@ -508,7 +508,9 @@ class Threads
             'modelLabel' => $model ? $this->models->label($model) : null,
             'quality' => $quality,
             'qualityLabel' => ModelRegistry::qualityLabel($quality),
-            'price' => $model && $quality ? $this->models->price($model, $quality) : null,
+            // Every round sends one image, even one carrying its conversation
+            // on, and Spend records it at this price.
+            'price' => $model && $quality ? $this->models->priceWithInputs($model, (string) $quality, 1) : null,
             'memory' => $round['memory'] ?? null,
             // The round as the working area sees it, while it is still in
             // temporary storage, so its status and actions stay live.

@@ -109,6 +109,8 @@ class RevisionController extends CpController
             // Kept so History and "Reuse prompt" still name the style it was made in.
             'instruction_id' => $source['instruction_id'] ?? null,
             'instruction_title' => $source['instruction_title'] ?? null,
+            // The same for its reference images. Only the source is sent.
+            'references' => $source['references'] ?? null,
             'revision' => ['notes' => $notes, 'general' => $general !== '' ? $general : null],
             // The rounds this one follows on from, so the feed can show them.
             'thread' => $threads->next($source, $data['thread'] ?? null, (string) $user->id()),

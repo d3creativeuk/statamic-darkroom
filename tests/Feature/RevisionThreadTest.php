@@ -175,7 +175,8 @@ class RevisionThreadTest extends TestCase
         $this->assertSame([null, $first['id'], $first['id']], array_column($feed['rounds'], 'parent'));
         $this->assertSame('Make the city taller', $feed['rounds'][1]['notes'][0]['text']);
         $this->assertSame('Nano Banana Pro', $feed['rounds'][0]['modelLabel']);
-        $this->assertSame(0.134, $feed['rounds'][0]['price']);
+        // The image plus the one it was revised from, as Spend records it.
+        $this->assertSame(0.1351, $feed['rounds'][0]['price']);
         $this->assertSame('complete', $feed['rounds'][0]['batch']['items'][0]['status']);
         $this->assertSame('discarded', $feed['rounds'][1]['batch']['items'][0]['status']);
 

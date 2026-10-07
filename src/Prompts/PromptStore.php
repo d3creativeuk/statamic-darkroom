@@ -21,6 +21,8 @@ class PromptStore extends YamlStore
 
     protected function fields(): array
     {
-        return ['name', 'prompt', 'model', 'instruction', 'aspect_ratio', 'quality', 'file_type', 'container', 'folder'];
+        // "references" holds asset ids only: an uploaded reference is never
+        // kept, so it cannot be brought back with the prompt.
+        return ['name', 'prompt', 'model', 'instruction', 'aspect_ratio', 'quality', 'file_type', 'container', 'folder', 'references'];
     }
 }

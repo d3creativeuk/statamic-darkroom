@@ -2,6 +2,7 @@
 
 namespace D3Creative\Darkroom\Generations;
 
+use D3Creative\Darkroom\History\SavedImages;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use Illuminate\Support\Str;
 
@@ -46,6 +47,7 @@ class BatchPresenter
             'container' => $batch['container'],
             'folder' => $batch['folder'] ?? '',
             'instructionTitle' => $batch['instruction_title'] ?? null,
+            'references' => SavedImages::references($batch['references'] ?? null),
             'createdAt' => $batch['created_at'],
             'urls' => [
                 'show' => cp_route('darkroom.batches.show', $id),

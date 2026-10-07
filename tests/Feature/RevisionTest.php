@@ -164,7 +164,8 @@ class RevisionTest extends TestCase
         $entry = app(UsageLog::class)->entries('2026-10')[0];
 
         $this->assertSame('revise', $entry['kind']);
-        $this->assertSame(0.134, $entry['price']);
+        // The image plus the one it was revised from, which Google bills as input.
+        $this->assertSame(0.1351, $entry['price']);
         $this->assertSame('Revise: A young woman looking at her phone', $entry['prompt']);
     }
 

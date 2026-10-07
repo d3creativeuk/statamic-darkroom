@@ -4,6 +4,7 @@ namespace D3Creative\Darkroom\History;
 
 use D3Creative\Darkroom\Generations\BatchStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
+use D3Creative\Darkroom\References\ReferenceStore;
 use Illuminate\Support\Facades\Gate;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Facades\AssetContainer;
@@ -43,6 +44,9 @@ class SavedImages
             'aspect_ratio' => $batch['aspect_ratio'] ?? null,
             'instruction' => $batch['instruction_id'] ?? null,
             'instruction_title' => $batch['instruction_title'] ?? null,
+            // The images sent with the prompt: names, and the asset for any
+            // chosen from the library, so "Reuse prompt" can add them again.
+            'references' => ($batch['references'] ?? null) ?: null,
             'upscaled_from' => $batch['upscaled_from'] ?? null,
             'revision' => ($batch['kind'] ?? null) === 'revise' ? ($batch['revision'] ?? null) : null,
             // The line of rounds that made a revised image (see Threads).
@@ -50,6 +54,26 @@ class SavedImages
             'generated_at' => $batch['created_at'] ?? null,
             'user' => $batch['user'] ?? null,
         ], fn ($value) => $value !== null);
+    }
+
+    /**
+     * A list of reference records as the page shows it, whatever shape the
+     * stored data is in.
+     *
+     * @return array<int, array{type: string, name: string, asset: string|null}>
+     */
+    public static function references(mixed $records): array
+    {
+        return collect(is_array($records) ? $records : [])
+            ->filter(fn ($record) => is_array($record) && is_string($record['name'] ?? null))
+            ->map(fn (array $record) => [
+                'type' => ($record['type'] ?? null) === 'asset' ? 'asset' : 'upload',
+                // Names stored before they were cleaned on the way in.
+                'name' => ReferenceStore::safeName($record['name']),
+                'asset' => is_string($record['asset'] ?? null) ? $record['asset'] : null,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -122,9 +146,9 @@ class SavedImages
 
     /**
      * Whether every word searched for appears somewhere in the prompt, the
-     * file's path, its alt text or the system instruction's title, so
-     * "lighthouse dusk" finds "A lighthouse at dusk" and a folder name finds
-     * everything saved in it.
+     * file's path, its alt text, the system instruction's title or the names
+     * of its reference images, so "lighthouse dusk" finds "A lighthouse at
+     * dusk" and a folder name finds everything saved in it.
      */
     protected function matches(AssetContract $asset, string $search): bool
     {
@@ -135,6 +159,7 @@ class SavedImages
             $asset->path(),
             $asset->get('alt') ?? '',
             $stamp['instruction_title'] ?? '',
+            ...array_column(self::references($stamp['references'] ?? null), 'name'),
         ]));
 
         return collect(preg_split('/\s+/', mb_strtolower($search)))
@@ -174,6 +199,7 @@ class SavedImages
             'aspectRatio' => $stamp['aspect_ratio'] ?? null,
             'instruction' => $stamp['instruction'] ?? null,
             'instructionTitle' => $stamp['instruction_title'] ?? null,
+            'references' => self::references($stamp['references'] ?? null),
             'generatedAt' => $stamp['generated_at'] ?? null,
         ];
     }

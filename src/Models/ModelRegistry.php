@@ -79,6 +79,46 @@ class ModelRegistry
     }
 
     /**
+     * Price of one image sent with the prompt in USD. A site's published
+     * config replaces the whole "models" array (addon config is merged one
+     * level deep), so a config published before this setting existed falls
+     * back to the price Darkroom ships with. 0 for a model it does not ship.
+     */
+    public function inputImagePrice(string $id): float
+    {
+        $price = $this->config['models'][$id]['input_image_price']
+            ?? self::shipped()['models'][$id]['input_image_price']
+            ?? null;
+
+        return is_numeric($price) ? (float) $price : 0.0;
+    }
+
+    /**
+     * What one generated image costs: the image itself, plus each image sent
+     * with the prompt (reference images, or the picture being upscaled or
+     * revised). Null when the config has no price for the size, so Spend can
+     * say the figure is incomplete rather than show a wrong one.
+     */
+    public function priceWithInputs(string $id, string $quality, int $inputImages): ?float
+    {
+        $price = $this->price($id, $quality);
+
+        return $price === null ? null : round($price + $inputImages * $this->inputImagePrice($id), 6);
+    }
+
+    /**
+     * The config file as Darkroom ships it.
+     *
+     * @return array<string, mixed>
+     */
+    protected static function shipped(): array
+    {
+        static $shipped;
+
+        return $shipped ??= (array) require dirname(__DIR__, 2).'/config/statamic-darkroom.php';
+    }
+
+    /**
      * "native" or "prepend". The global override wins when it is set.
      */
     public function instructionMode(string $id): string
@@ -166,6 +206,7 @@ class ModelRegistry
                 'label' => self::qualityLabel($quality),
                 'price' => $this->price($id, $quality),
             ], $this->qualities($id)),
+            'inputImagePrice' => $this->inputImagePrice($id),
             'aspectRatios' => $this->aspectRatios($id),
             'dimensions' => $this->config['models'][$id]['dimensions'] ?? null,
             'prependsInstruction' => $this->instructionMode($id) === 'prepend',

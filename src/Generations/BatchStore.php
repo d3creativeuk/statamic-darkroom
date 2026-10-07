@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
  *   item-1.json           that image's status; rewritten as it progresses
  *   item-1.orig           the bytes Google returned
  *   item-1.preview.jpg    a smaller copy for the page
+ *   source.bin            the image an upscale or revision works on
+ *   reference-1.jpg       reference images sent with the prompt, in order
  *
  * Each image has its own status file so that two images finishing, or being
  * saved, at the same moment in different PHP workers never overwrite each
@@ -128,6 +130,42 @@ class BatchStore
     public function source(string $id): ?string
     {
         return $this->disk()->get($this->path("{$id}/source.bin"));
+    }
+
+    /**
+     * Keep copies of the reference images a batch sends, in order. Copied in
+     * when the batch is created, like an upscale's source, so pruning the
+     * originals cannot leave the job without them.
+     *
+     * @param  array<int, string>  $binaries
+     */
+    public function putReferences(string $id, array $binaries): void
+    {
+        foreach (array_values($binaries) as $position => $binary) {
+            $this->disk()->put($this->path("{$id}/reference-".($position + 1).'.jpg'), $binary);
+        }
+    }
+
+    /**
+     * The batch's reference images in order, or null if any has gone.
+     *
+     * @return array<int, string>|null
+     */
+    public function references(string $id, int $count): ?array
+    {
+        $images = [];
+
+        for ($position = 1; $position <= $count; $position++) {
+            $binary = $this->disk()->get($this->path("{$id}/reference-{$position}.jpg"));
+
+            if ($binary === null) {
+                return null;
+            }
+
+            $images[] = $binary;
+        }
+
+        return $images;
     }
 
     public function putOriginal(string $id, int $index, string $binary): void

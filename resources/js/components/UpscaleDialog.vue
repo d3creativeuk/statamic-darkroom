@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { Button, Description, Field, Modal, ModalClose, Select } from '@statamic/cms/ui';
-import { pixelSize, qualityLabel, qualityRank, usd } from '../composables/format.js';
+import { pixelSize, qualityLabel, qualityRank, usd, withInputImages } from '../composables/format.js';
 
 const props = defineProps({
     models: { type: Array, required: true },
@@ -35,13 +35,14 @@ const qualityOptions = computed(() =>
         value: option.value,
         // The same size shown elsewhere in the page, then the price. The size
         // is left out for Auto, where the model takes its shape from the image.
-        label: [option.label, pixelSize(current.value.dimensions, props.source?.aspectRatio, option.value), usd(option.price)]
+        // The price includes the image being sent, which Google bills too.
+        label: [option.label, pixelSize(current.value.dimensions, props.source?.aspectRatio, option.value), usd(withInputImages(current.value, option.price))]
             .filter(Boolean)
             .join(' · '),
     })),
 );
 
-const price = computed(() => current.value?.qualities.find((option) => option.value === quality.value)?.price ?? null);
+const price = computed(() => withInputImages(current.value, current.value?.qualities.find((option) => option.value === quality.value)?.price ?? null));
 
 function chooseQuality() {
     const values = qualityOptions.value.map((option) => option.value);

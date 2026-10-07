@@ -60,6 +60,22 @@ class GenerateBatch
             $references[] = ['mime_type' => $batch['source_mime'] ?? 'image/jpeg', 'data' => $source];
         }
 
+        // Reference images go with the user's own prompt, in the order they
+        // were added, and the system instruction still applies. An upscale or
+        // revision of a referenced image carries the list as a record only:
+        // what it sends is its source.
+        $referenced = ! $fromSource && ! empty($batch['references']);
+
+        if ($referenced) {
+            foreach ($store->references($this->batchId, count($batch['references'])) ?? [] as $image) {
+                $references[] = ['mime_type' => 'image/jpeg', 'data' => $image];
+            }
+        }
+
+        // Google bills each image sent with the prompt. A revision carrying
+        // its conversation on is still billed for the latest image.
+        $inputImages = $fromSource ? 1 : count($references);
+
         // A revision round can carry on the conversation of the round it
         // starts from, so the model sees the earlier rounds (see Memory). Then
         // only the notes are sent: the image is already on Google's side.
@@ -102,6 +118,12 @@ class GenerateBatch
                 continue;
             }
 
+            if ($referenced && $references === []) {
+                $this->failWith($store, $item['index'], 'reference_missing', 'A reference image is no longer available.', false);
+
+                continue;
+            }
+
             $requests[$item['index']] = $requestFor($continues !== null);
 
             $store->updateItem($this->batchId, $item['index'], ['status' => ItemStatus::Generating->value]);
@@ -118,7 +140,7 @@ class GenerateBatch
         // again because it had gone, otherwise null.
         $memory = $continues !== null ? 'continued' : null;
 
-        $onEvent = function (string $event, $index, $payload) use ($store, $encoder, $models, $usage, $config, $batch, $upscaling, $revising, &$settled, &$lost, &$memory) {
+        $onEvent = function (string $event, $index, $payload) use ($store, $encoder, $models, $usage, $config, $batch, $upscaling, $revising, $inputImages, &$settled, &$lost, &$memory) {
             if ($event === 'attempt') {
                 $store->updateItem($this->batchId, $index, ['attempts' => $payload]);
             }
@@ -155,7 +177,7 @@ class GenerateBatch
                 'model_label' => $models->label($batch['model']),
                 'quality' => $batch['quality'],
                 'aspect_ratio' => $batch['aspect_ratio'],
-                'price' => $models->price($batch['model'], $batch['quality']),
+                'price' => $models->priceWithInputs($batch['model'], $batch['quality'], $inputImages),
                 'prompt' => ($upscaling ? 'Upscale: ' : ($revising ? 'Revise: ' : '')).$batch['prompt'],
             ]);
 

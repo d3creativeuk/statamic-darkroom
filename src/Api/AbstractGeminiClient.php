@@ -223,6 +223,28 @@ abstract class AbstractGeminiClient implements ImageGenerator
     }
 
     /**
+     * The usage figures worth keeping: the plain numbers, plus the tokens
+     * billed for images sent with the prompt, which Google only gives inside
+     * a per-modality list. The rest of the usage block runs to nested lists
+     * of every model call.
+     *
+     * @param  array<string, mixed>  $usage
+     * @return array<string, scalar>
+     */
+    protected function usage(array $usage, string $list, string $modalityKey, string $tokensKey): array
+    {
+        $kept = array_filter($usage, 'is_scalar');
+
+        foreach ((array) ($usage[$list] ?? []) as $entry) {
+            if (strtolower((string) ($entry[$modalityKey] ?? '')) === 'image') {
+                $kept['input_image_tokens'] = ($kept['input_image_tokens'] ?? 0) + (int) ($entry[$tokensKey] ?? 0);
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
      * Seconds to wait before the next round: the configured backoff, or what
      * Google asked for if that is longer, capped so one slow header cannot
      * stall the batch.

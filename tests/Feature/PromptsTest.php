@@ -48,6 +48,20 @@ class PromptsTest extends TestCase
     }
 
     #[Test]
+    public function library_reference_images_are_saved_with_a_prompt()
+    {
+        $saved = $this->postJson(cp_route('darkroom.prompts.store'), $this->prompt([
+            'references' => ['assets::styles/linocut.png', 'assets::products/mug.jpg'],
+        ]))->assertCreated()->json('saved');
+
+        $this->assertSame(['assets::styles/linocut.png', 'assets::products/mug.jpg'], app(PromptStore::class)->find($saved['id'])['references']);
+
+        $this->postJson(cp_route('darkroom.prompts.store'), $this->prompt(['references' => array_fill(0, 15, 'assets::a.jpg')]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('references');
+    }
+
+    #[Test]
     public function batch_size_is_never_stored_with_a_prompt()
     {
         $saved = $this->postJson(cp_route('darkroom.prompts.store'), $this->prompt(['batch_size' => 4]))->json('saved');

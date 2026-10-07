@@ -13,7 +13,8 @@ use Statamic\Fields\Field;
 
 /**
  * Where a generated image is allowed to go: the asset containers a user may
- * upload to, and the folders inside them.
+ * upload to, and the folders inside them. Also the containers a user may
+ * choose reference images from.
  */
 class Destinations
 {
@@ -66,22 +67,51 @@ class Destinations
      */
     public function forFrontend($user): array
     {
-        return $this->containersFor($user)->map(function ($container) {
-            $preload = (new Field('darkroom_destination', [
-                'type' => 'assets',
-                'container' => $container->handle(),
-                'max_files' => 1,
-            ]))->fieldtype()->preload();
+        // Uploading is switched off. The picker is for choosing a folder, and
+        // a file dropped on it by accident would upload.
+        return $this->containersFor($user)
+            ->map(fn ($container) => $this->browserData($container, ['can_upload' => false]))
+            ->all();
+    }
 
-            return [
-                'handle' => $container->handle(),
-                'title' => $container->title(),
-                // Uploading is switched off. The picker is for choosing a
-                // folder, and a file dropped on it by accident would upload.
-                'browser' => array_merge($preload['container'], ['can_upload' => false]),
-                'columns' => $preload['columns'],
-            ];
-        })->all();
+    /**
+     * The containers a user may look in, for choosing reference images from
+     * the library. Seeing an image is enough to send it to Google; nothing is
+     * uploaded or created, so the browser offers neither.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function forPicking($user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        return AssetContainer::all()
+            ->filter(fn ($container) => Gate::forUser($user)->allows('view', $container))
+            ->map(fn ($container) => $this->browserData($container, ['can_upload' => false, 'can_create_folders' => false]))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    protected function browserData(AssetContainerContract $container, array $overrides): array
+    {
+        $preload = (new Field('darkroom_destination', [
+            'type' => 'assets',
+            'container' => $container->handle(),
+            'max_files' => 1,
+        ]))->fieldtype()->preload();
+
+        return [
+            'handle' => $container->handle(),
+            'title' => $container->title(),
+            'browser' => array_merge($preload['container'], $overrides),
+            'columns' => $preload['columns'],
+        ];
     }
 
     /**

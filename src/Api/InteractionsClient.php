@@ -90,7 +90,7 @@ class InteractionsClient extends AbstractGeminiClient
             $this->decode($image['data']),
             $image['mime_type'] ?? 'image/jpeg',
             $json['model'] ?? $request->model,
-            array_filter($json['usage'] ?? [], 'is_scalar'),
+            $this->usage($json['usage'] ?? [], 'input_tokens_by_modality', 'modality', 'tokens'),
             // Only present when the turn was stored.
             is_string($json['id'] ?? null) ? $json['id'] : null,
         );

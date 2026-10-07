@@ -158,6 +158,32 @@ class PageTest extends TestCase
     }
 
     #[Test]
+    public function reference_images_can_be_chosen_from_any_container_the_user_may_view()
+    {
+        $this->container('assets');
+        $this->container('private');
+        $this->container('archive');
+
+        // Allowed to create folders in "assets", so only the picker's own
+        // setting can switch that off there.
+        $this->actingAs($this->userWith(['use darkroom', 'view assets assets', 'upload assets assets', 'edit assets folders', 'view archive assets']));
+
+        $this->page()->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('containers', 1)
+            ->where('containers.0.browser.can_create_folders', true)
+            ->has('pickContainers', 2)
+            // Looking only: nothing can be uploaded or created from the picker.
+            ->where('pickContainers', fn ($containers) => collect($containers)->pluck('handle')->sort()->values()->all() === ['archive', 'assets']
+                && collect($containers)->every(fn ($container) => $container['browser']['can_upload'] === false && $container['browser']['can_create_folders'] === false))
+            ->where('urls.references', cp_route('darkroom.references.store'))
+            ->where('limits.references', 14)
+            ->where('limits.referenceEdge', 1536)
+            ->where('limits.referenceBytes', fn ($bytes) => $bytes > 0 && $bytes <= 20480 * 1024)
+            ->where('models.0.inputImagePrice', 0.0011)
+        );
+    }
+
+    #[Test]
     public function a_user_without_the_permission_is_turned_away()
     {
         $this->container();
@@ -215,7 +241,7 @@ class PageTest extends TestCase
             }
         }
 
-        $this->assertCount(30, $buckets);
+        $this->assertCount(32, $buckets);
         $this->assertSame(array_values($buckets), array_values(array_unique($buckets)), 'Two routes share a throttle bucket.');
     }
 

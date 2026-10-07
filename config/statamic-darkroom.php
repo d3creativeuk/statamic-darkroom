@@ -72,6 +72,12 @@ return [
     | "dimensions" holds pixel sizes by quality and ratio. A quality without
     | its own table is worked out from 1K. Leave it out when unknown.
     |
+    | "input_image_price" is what one image sent with the prompt costs in USD:
+    | a reference, or the picture being upscaled or revised. Google bills a
+    | flat token count per input image (560 on Pro, 1,120 on the others) at
+    | each model's input rate. It is added to estimates and to Spend. A config
+    | published before this setting existed gets the shipped price.
+    |
     | "512" is the 0.5K size, for quick drafts. The API accepts it on all three
     | models, but only Nano Banana 2 charges less for it. Pro and Lite bill it
     | as 1K and were no faster at it (Pro about 20s, Lite about 3s at either
@@ -87,6 +93,7 @@ return [
             'label' => 'Nano Banana Pro',
             'description' => 'State-of-the-art image generation and editing model.',
             'qualities' => ['1K' => 0.134, '2K' => 0.134, '4K' => 0.24],
+            'input_image_price' => 0.0011,
             'aspect_ratios' => $aspectRatios,
             'system_instruction' => 'native',
             'dimensions' => $dimensions,
@@ -96,6 +103,7 @@ return [
             'label' => 'Nano Banana 2',
             'description' => 'Pro-level visual intelligence with Flash-speed efficiency and reality-grounded generation capabilities.',
             'qualities' => ['512' => 0.045, '1K' => 0.0672, '2K' => 0.101, '4K' => 0.151],
+            'input_image_price' => 0.00056,
             'aspect_ratios' => $aspectRatios,
             'system_instruction' => 'native',
             'dimensions' => $dimensions,
@@ -105,6 +113,7 @@ return [
             'label' => 'Nano Banana 2 Lite',
             'description' => 'Our smallest and most cost effective image generation and editing model, built for at scale usage.',
             'qualities' => ['1K' => 0.0336],
+            'input_image_price' => 0.00028,
             'aspect_ratios' => $aspectRatios,
             'system_instruction' => 'prepend',
             'dimensions' => $dimensions,
@@ -200,7 +209,8 @@ return [
         'deadline' => 300,
     ],
 
-    // Raised for the background work only, and only if it is currently lower.
+    // Raised for the background work, and while a reference image is being
+    // reduced, and only if it is currently lower.
     'memory_limit' => '1024M',
 
     /*
@@ -222,6 +232,31 @@ return [
     'preview' => [
         'max_edge' => 1600,
         'quality' => 82,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reference images
+    |--------------------------------------------------------------------------
+    |
+    | Images sent with a prompt for the model to work from: a style, a product,
+    | a person. Uploads and picks from the asset library are both turned into
+    | a JPEG no larger than "max_edge" and kept here, outside the web root and
+    | outside every asset container, for "temp.retention_hours". They never
+    | become assets, so no Glide presets are made from them.
+    |
+    | Google accepts up to 14 images per request, and at most 20 MB in total
+    | once encoded. "max_request_mb" refuses a set that would come close.
+    |
+    */
+
+    'references' => [
+        'max' => 14,
+        'path' => 'statamic-darkroom/references',
+        'max_edge' => 1536,
+        'quality' => 85,
+        'max_upload_kb' => 20480,
+        'max_request_mb' => 18,
     ],
 
     /*

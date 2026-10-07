@@ -50,10 +50,28 @@ The **Spend** tab shows each user only the images they generated. To let someone
 | Quality | 1K, 2K or 4K, with the pixel size shown where it is known. Nano Banana 2 also offers 0.5K. Lite produces 1K only, a limit of the model: Google refuses larger sizes for it |
 | File type | JPEG, WebP or PNG |
 | Batch size | 1 to 4 images from the same prompt. Always starts at 1 |
+| Reference images | Up to 14 images for the model to work from: a style, a product, a person. Optional |
 
 The estimated cost is shown next to the Generate button before you spend anything.
 
 Generated images are held in temporary storage and shown as previews. For each one you can set the filename, alt text and file type, then **Save to folder…** or **Discard**. Filenames are made URL-safe as you type or paste: lowercase, with spaces and punctuation turned into hyphens. Nothing reaches your asset library until you save it. If you reload the page, unsaved images are still there.
+
+### Reference images
+
+Reference images give the model something to work from as well as the prompt: a style to copy, a product to show, a person or a room to keep. Add up to 14 with **Upload images**, by dropping files anywhere on the prompt, or with **Choose from assets**, which opens Statamic's asset browser on any container you can view. They are numbered in the order they are sent, and the prompt refers to them by those numbers: "a lighthouse at dusk in the style of image 1", or "the mug from image 2 on the table from image 1". With a single image, "the reference image" is enough.
+
+Some things learned from testing (5 October 2026):
+
+- **All three models follow a style reference**, although Google only lists style references for Nano Banana Pro. They also tend to borrow its layout. Say "use only its style, not its layout" if that is not wanted.
+- **Numbers are followed.** Given the same two images in the same order, swapping "image 1" and "image 2" in the prompt swapped what was taken from each.
+- **The system instruction is still sent**, but a style reference largely wins over it. A watercolour instruction added a few watercolour touches to an image made in the style of a collage.
+- **Auto takes the shape of the reference.** Choose an aspect ratio to override it.
+
+Each reference adds a little to the cost of every image (see [Prices](#prices)), and the estimate includes it.
+
+References are reduced to a JPEG no larger than 1536 pixels and kept for a day in `storage/app/statamic-darkroom/references/`, outside the web root and private to you. An upload never becomes an asset, so nothing is added to your library and Glide never processes it. JPEG, PNG and WebP work from anywhere. Other formats, such as an iPhone's HEIC photos, work when your browser can open them.
+
+A saved image remembers the names of its references, shown as **References (n)** in History and searchable there. **Reuse prompt** and saved prompts bring back references chosen from the asset library; uploads are not kept, so those need adding again.
 
 ### Choosing where to save
 
@@ -126,7 +144,7 @@ The **Spend** tab shows an estimated total for each month, broken down by model,
 
 Each user sees only their own images, unless they have the permission to see everyone's (see [Permissions](#permissions)). Images made with `darkroom:smoke` belong to no user, so only people who can see everyone's spend see those.
 
-Google charges when an image is generated, so every image it returns is counted, including upscales and ones you went on to discard. Images that failed are not counted. Each is recorded at the list price in your config at the time.
+Google charges when an image is generated, so every image it returns is counted, including upscales and ones you went on to discard. Images that failed are not counted. Each is recorded at the list price in your config at the time, including any images sent with the prompt.
 
 These are estimates in US dollars. Your Google invoice is the real figure: it also counts the small number of text tokens in each request, and prices can change before the config is updated.
 
@@ -138,7 +156,7 @@ Nano Banana Pro and Nano Banana 2 honour system instructions directly. Nano Bana
 
 ### Saved prompts
 
-Save a prompt together with its model, aspect ratio, quality, file type, folder and system instruction, then load it again later. Batch size is never saved with a prompt, so loading one cannot multiply what the next click costs.
+Save a prompt together with its model, aspect ratio, quality, file type, folder, system instruction and any reference images chosen from the asset library, then load it again later. Uploaded reference images are not kept, so they are not saved with a prompt. Batch size is never saved with a prompt, so loading one cannot multiply what the next click costs.
 
 Saved prompts and system instructions are stored as YAML in `resources/addons/statamic-darkroom/`, so they can be committed with the rest of your site.
 
@@ -161,7 +179,9 @@ Google bills per image, in US dollars. These are the list prices Darkroom ships 
 | Nano Banana 2 | $0.045 | $0.0672 | $0.101 | $0.151 |
 | Nano Banana 2 Lite | not offered | $0.0336 | not available | not available |
 
-A batch costs the price of one image multiplied by the batch size. An upscale costs the price of one image at the size you upscale to. The figure shown in the Control Panel is an estimate from these numbers, not a bill.
+Each image sent with the prompt is billed as well: a reference image, or the image being upscaled or revised. Google charges a flat number of tokens for each, which comes to $0.0011 on Nano Banana Pro, about $0.00056 on Nano Banana 2 and about $0.00028 on Lite. With 14 references, that adds about 12% to the price of a 1K image, or of a 2K image on Nano Banana Pro, 5 to 8% at the other 2K and 4K sizes, and about 17% to a 0.5K image on Nano Banana 2.
+
+A batch costs the price of one image, plus its reference images, multiplied by the batch size. An upscale costs the price of one image at the size you upscale to, plus the image it is given. The figure shown in the Control Panel is an estimate from these numbers, not a bill.
 
 ## Configuration
 
@@ -175,13 +195,16 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 |---|---|---|
 | `api_key` | `GEMINI_API_KEY` | Your Google API key |
 | `default_model` | `gemini-3-pro-image` | The model selected on first visit. Also `DARKROOM_MODEL` |
-| `models` | three models | Each model's label, description, qualities with prices, aspect ratios and how it takes a system instruction. Add or retire a model here |
+| `models` | three models | Each model's label, description, qualities with prices, the price of an image sent with the prompt, aspect ratios and how it takes a system instruction. Add or retire a model here |
 | `batch.max` | `4` | Largest batch allowed |
 | `defaults` | 16:9, 2K, JPEG | What the form starts with, including a default container and folder |
 | `file_types` | JPEG, WebP, PNG | The file types offered when saving |
 | `encode.quality` | `90` | Compression used when converting to WebP |
 | `save.apply_source_preset` | `false` | Run the container's source preset on saved images |
 | `temp.retention_hours` | `24` | How long unsaved images are kept |
+| `references.max` | `14` | Most reference images one generation can send. Google's limit is 14 |
+| `references.max_edge` | `1536` | Reference images are reduced to this many pixels on their longest side |
+| `references.max_upload_kb` | `20480` | Largest reference file the server accepts: an upload as your browser sends it, already reduced, or a library image's original file. Your server's own upload limit may be lower |
 | `trash.retention_days` | `30` | How long images wait in Trash before they are deleted |
 | `revise.remember` | `true` | Let revision rounds remember earlier rounds, which keeps them on Google's side for up to 55 days. Also `DARKROOM_REVISION_MEMORY` |
 | `revise.remember_days` | `50` | Conversations older than this start fresh instead of being carried on |
@@ -200,7 +223,7 @@ If Google is overloaded or rate limited, each image is tried up to three times. 
 
 Saving works the same way, because warming Glide presets from a large source can take a while.
 
-Unsaved images live in `storage/app/statamic-darkroom/batches/`, outside the web root, and are private to the user who generated them. Anything older than the retention period is removed whenever the page is opened, and daily by `darkroom:prune` if your site runs Laravel's scheduler.
+Unsaved images live in `storage/app/statamic-darkroom/batches/`, and reference images in `storage/app/statamic-darkroom/references/`, outside the web root and private to the user who added them. Anything older than the retention period is removed whenever the page is opened, and daily by `darkroom:prune` if your site runs Laravel's scheduler.
 
 The spend log is kept separately in `storage/app/statamic-darkroom/usage/`, one file per month, and is never pruned. It is not in Git, so each environment keeps its own.
 
@@ -210,8 +233,11 @@ The spend log is kept separately in `storage/app/statamic-darkroom/usage/`, one 
 # Generate one real image to check your key and connection. This costs money.
 php artisan darkroom:smoke "a red bicycle" --model=gemini-3.1-flash-lite-image
 
-# Remove unsaved images older than the retention period, and delete anything
-# in Trash for longer than 30 days that is not used on the site.
+# The same with reference images, sent in order. Repeat --reference for more.
+php artisan darkroom:smoke "a red bicycle in the style of the reference image" --reference=/path/to/style.jpg
+
+# Remove unsaved images and reference images older than the retention period,
+# and delete anything in Trash for longer than 30 days that is not used on the site.
 php artisan darkroom:prune
 ```
 
@@ -220,7 +246,9 @@ php artisan darkroom:prune
 - Google's documentation states that every generated image carries an invisible SynthID watermark. It cannot be turned off.
 - Your prompts and images are handled under Google's Gemini API terms, not by D3 Creative. Nothing is sent anywhere else.
 - Revision rounds are kept by Google for up to 55 days so later rounds can remember them (see [Revising with notes](#revising-with-notes)). Set `DARKROOM_REVISION_MEMORY=false` to keep nothing there. New images and upscales are never kept.
-- Apart from upscaling and revising an image Darkroom made, generating from a reference image is not supported yet.
+- Only use reference images you have the rights to. Google's terms ask the same.
+- Uploads are reduced in your browser before they are sent, so most photos arrive at a few hundred kilobytes. A server that limits uploads to a megabyte or two, as stock PHP and nginx do, can still refuse a very large file. Darkroom says so when that happens.
+- The names of reference images are saved in the asset's `.meta` file, beside its prompt (see the next point).
 - Statamic keeps each asset's data, including Darkroom's prompts and revision notes, in `.meta` folders on the container's disk. If a container lives in your public folder, your web server may serve those files to anyone who guesses the address, as Laravel Herd does. Many production setups already block paths starting with a dot; if yours does not, add a rule such as nginx's `location ~ /\.(?!well-known) { deny all; }`.
 
 ## Uninstalling

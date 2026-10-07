@@ -9,6 +9,7 @@ use D3Creative\Darkroom\Http\Controllers\Concerns\FindsBatches;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Jobs\GenerateBatch;
 use D3Creative\Darkroom\Models\ModelRegistry;
+use D3Creative\Darkroom\References\ReferenceStore;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +27,7 @@ class BatchController extends CpController
         InstructionStore $instructions,
         BatchStore $store,
         BatchPresenter $presenter,
+        ReferenceStore $referenceStore,
     ) {
         $config = config('statamic-darkroom');
         $user = User::current();
@@ -44,6 +46,10 @@ class BatchController extends CpController
             'container' => ['required', 'string'],
             'folder' => ['nullable', 'string', 'max:255', Destinations::folderRule()],
             'instruction' => ['nullable', 'string'],
+            'references' => ['nullable', 'array', 'max:'.(int) ($config['references']['max'] ?? 14)],
+            'references.*' => ['string', 'size:26', 'distinct'],
+        ], [
+            'references.max' => 'Use at most :max reference images.',
         ]);
 
         // What a model accepts depends on the model, so these are checked
@@ -67,6 +73,8 @@ class BatchController extends CpController
             throw ValidationException::withMessages(['instruction' => 'That system instruction no longer exists.']);
         }
 
+        [$references, $images] = $this->references($data['references'] ?? [], (string) $user->id(), $referenceStore, $config);
+
         // One batch at a time per person. It keeps a double click, or a second
         // tab, from quietly doubling the bill.
         if ($store->inFlightFor((string) $user->id())) {
@@ -87,11 +95,58 @@ class BatchController extends CpController
             // A copy of the text as it was sent, so the record stays true even
             // if the saved instruction is edited or deleted afterwards.
             'instruction_text' => $instruction['body'] ?? null,
+            'references' => $references,
         ], (int) ($data['batch_size'] ?? 1));
+
+        $store->putReferences($batch['id'], $images);
 
         GenerateBatch::dispatchAfterResponse($batch['id']);
 
         return response()->json($presenter->present($batch), 201);
+    }
+
+    /**
+     * The reference images to send, in order: what the batch records about
+     * each, and the images themselves, read now so that a prune between here
+     * and the job cannot take them away.
+     *
+     * @param  array<int, string>  $ids
+     * @param  array<string, mixed>  $config
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, string>}
+     */
+    protected function references(array $ids, string $user, ReferenceStore $store, array $config): array
+    {
+        $records = [];
+        $images = [];
+
+        foreach ($ids as $id) {
+            $reference = $store->ownedBy($id, $user);
+            $image = $reference ? $store->image($id) : null;
+
+            // Unknown, someone else's and expired all read the same, so the
+            // answer says nothing about whose images exist.
+            if ($image === null) {
+                throw ValidationException::withMessages(['references' => 'A reference image has expired. Add it again.']);
+            }
+
+            $records[] = array_filter([
+                'type' => $reference['type'],
+                'name' => $reference['name'],
+                'asset' => $reference['asset'] ?? null,
+            ], fn ($value) => $value !== null);
+
+            $images[] = $image;
+        }
+
+        // Google refuses a request over 20 MB, and images go as base64,
+        // a third larger than the files.
+        $encoded = array_sum(array_map('strlen', $images)) * 4 / 3;
+
+        if ($encoded > (float) ($config['references']['max_request_mb'] ?? 18) * 1024 * 1024) {
+            throw ValidationException::withMessages(['references' => 'These reference images are too large together. Remove some.']);
+        }
+
+        return [$records, $images];
     }
 
     public function show(string $id, BatchStore $store, BatchPresenter $presenter)

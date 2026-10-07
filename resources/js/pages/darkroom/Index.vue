@@ -20,6 +20,8 @@ import ControlsBar from '../../components/ControlsBar.vue';
 import AssetViewer from '../../components/AssetViewer.vue';
 import FolderPicker from '../../components/FolderPicker.vue';
 import History from '../../components/History.vue';
+import ReferenceImages from '../../components/ReferenceImages.vue';
+import ReferencePicker from '../../components/ReferencePicker.vue';
 import RemovalDialog from '../../components/RemovalDialog.vue';
 import RevisionStory from '../../components/RevisionStory.vue';
 import RevisionThread from '../../components/RevisionThread.vue';
@@ -29,8 +31,9 @@ import Spend from '../../components/Spend.vue';
 import SystemInstructions from '../../components/SystemInstructions.vue';
 import Trash from '../../components/Trash.vue';
 import UpscaleDialog from '../../components/UpscaleDialog.vue';
-import { qualityRank, usd } from '../../composables/format.js';
+import { assetName, escapeHtml, qualityRank, usd, withInputImages } from '../../composables/format.js';
 import { useGeneration } from '../../composables/useGeneration.js';
+import { useReferences } from '../../composables/useReferences.js';
 import { useRevisions } from '../../composables/useRevisions.js';
 import { http } from '../../composables/useHttp.js';
 
@@ -39,6 +42,9 @@ const props = defineProps({
     models: { type: Array, required: true },
     fileTypes: { type: Array, required: true },
     containers: { type: Array, required: true },
+    // Where reference images can be chosen from, which can be wider than
+    // where images can be saved.
+    pickContainers: { type: Array, default: () => [] },
     defaults: { type: Object, required: true },
     limits: { type: Object, required: true },
     prompts: { type: Array, required: true },
@@ -266,14 +272,29 @@ watch(
     },
 );
 
+// Reference images for the next generation. Never remembered between visits,
+// like the prompt itself.
+const references = useReferences({ url: props.urls.references, limits: props.limits });
+const referencePicking = ref(false);
+
 const price = computed(() => model.value.qualities.find((quality) => quality.value === form.quality)?.price ?? null);
+
+// Google bills each image sent with the prompt too, once per image generated.
+const referenceCount = computed(() => references.list.value.length);
 
 const costNote = computed(() => {
     if (price.value === null) {
         return null;
     }
 
-    const total = usd(price.value * form.batchSize);
+    const total = usd(withInputImages(model.value, price.value, referenceCount.value) * form.batchSize);
+    const sent = referenceCount.value === 1 ? __('1 reference image') : __(':n reference images', { n: referenceCount.value });
+
+    if (referenceCount.value) {
+        return form.batchSize > 1
+            ? __('About :total USD for :n images, with :sent, at Google’s list price.', { total, n: form.batchSize, sent })
+            : __('About :total USD with :sent, at Google’s list price.', { total, sent });
+    }
 
     return form.batchSize > 1
         ? __('About :total USD for :n images at Google’s list price.', { total, n: form.batchSize })
@@ -281,7 +302,9 @@ const costNote = computed(() => {
 });
 
 const ready = computed(() => props.configured && props.containers.length > 0);
-const canGenerate = computed(() => ready.value && form.prompt.trim() !== '' && !generating.value && !submitting.value);
+const canGenerate = computed(
+    () => ready.value && form.prompt.trim() !== '' && !generating.value && !submitting.value && !references.pending.value,
+);
 
 const generateLabel = computed(() => {
     if (generating.value) {
@@ -313,11 +336,57 @@ async function submit() {
             container: form.container,
             folder: form.folder,
             instruction: form.instruction,
+            references: references.ids.value,
         });
     } catch (e) {
-        Statamic.$toast.error(e.message);
+        // A reference kept on the server for a day can expire while the
+        // page is open. Those are taken out so the rest can be sent again.
+        const expired = Object.keys(e.errors ?? {}).some((key) => key.startsWith('references')) ? await references.dropExpired() : 0;
+
+        Statamic.$toast.error(
+            expired
+                ? __(':n reference images had expired and were taken out. Add them again, or generate without them.', { n: expired })
+                : e.message,
+        );
     } finally {
         submitting.value = false;
+    }
+}
+
+// Files dropped anywhere on the prompt card become reference images, so a
+// near miss does not open the file in place of the page. Text dragged into
+// the prompt is left alone.
+const dropping = ref(0);
+const carriesFiles = (event) => [...(event.dataTransfer?.types ?? [])].includes('Files');
+
+function dragEnter(event) {
+    if (carriesFiles(event)) {
+        dropping.value++;
+    }
+}
+
+function dragOver(event) {
+    if (carriesFiles(event)) {
+        event.preventDefault();
+    }
+}
+
+function dragLeave(event) {
+    if (carriesFiles(event)) {
+        dropping.value = Math.max(0, dropping.value - 1);
+    }
+}
+
+function drop(event) {
+    if (!carriesFiles(event)) {
+        return;
+    }
+
+    event.preventDefault();
+    dropping.value = 0;
+
+    if (ready.value) {
+        references.add(event.dataTransfer.files);
     }
 }
 
@@ -716,6 +785,10 @@ function promptSettings() {
         file_type: form.fileType,
         container: form.container,
         folder: form.folder,
+        // Library images only: an upload is not kept, so it cannot come back.
+        references: references.list.value
+            .filter((entry) => entry.status === 'ready' && entry.reference.type === 'asset')
+            .map((entry) => entry.reference.asset),
     };
 }
 
@@ -747,6 +820,40 @@ function applySettings(settings) {
 
     reconcile();
 
+    // A prompt saved before reference images existed says nothing about
+    // them, so whatever is attached stays.
+    if (Array.isArray(settings.references)) {
+        // Asset ids from a saved prompt; records from History.
+        const records = settings.references.map((entry) => (typeof entry === 'string' ? { type: 'asset', asset: entry } : entry));
+        const library = records
+            .filter((entry) => entry.type === 'asset' && entry.asset)
+            .map((entry) => ({ id: entry.asset, name: entry.name ?? assetName(entry.asset) }));
+        // Toasts are HTML, and these names are whatever their owners typed.
+        const uploads = records.filter((entry) => entry.type !== 'asset').map((entry) => escapeHtml(entry.name));
+
+        references.clear();
+
+        if (uploads.length) {
+            notices.push(
+                __('It was made with uploaded reference images (:names), which are not kept. Upload them again to use them.', {
+                    names: uploads.join(', '),
+                }),
+            );
+        }
+
+        if (library.length) {
+            references.attach(library, { quiet: true }).then((failed) => {
+                if (failed.length) {
+                    Statamic.$toast.info(
+                        __('Some of its reference images could not be added: :list', {
+                            list: failed.map(({ name, message }) => `${escapeHtml(name)} (${escapeHtml(message)})`).join('; '),
+                        }),
+                    );
+                }
+            });
+        }
+    }
+
     if (notices.length) {
         Statamic.$toast.info(notices.join(' '));
     }
@@ -772,6 +879,7 @@ function reuse(item) {
         file_type: item.fileType,
         container: item.container,
         folder: item.folder,
+        references: item.references ?? [],
     });
 
     composer.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -851,7 +959,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         :prompts="promptList"
                         :loaded="loadedPrompt"
                         :suggested-name="suggestedPromptName"
-                        :can-save="form.prompt.trim() !== ''"
+                        :can-save="form.prompt.trim() !== '' && !references.pending.value"
                         :busy="savingPrompt"
                         :disabled="!ready"
                         @load="loadPrompt"
@@ -861,7 +969,13 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                     />
                 </PanelHeader>
 
-                <Card>
+                <Card
+                    :class="{ 'dr-dropping': dropping > 0 }"
+                    @dragenter="dragEnter"
+                    @dragover="dragOver"
+                    @dragleave="dragLeave"
+                    @drop="drop"
+                >
                     <Textarea
                         v-model="form.prompt"
                         :rows="7"
@@ -870,6 +984,16 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         :placeholder="__('Describe the image you want')"
                         @keydown.meta.enter="submit"
                         @keydown.ctrl.enter="submit"
+                    />
+
+                    <ReferenceImages
+                        class="dr-reference-images"
+                        :list="references.list.value"
+                        :max="references.max.value"
+                        :can-choose="pickContainers.length > 0"
+                        @add="references.add($event)"
+                        @choose="referencePicking = true"
+                        @remove="references.remove($event)"
                     />
 
                     <ControlsBar
@@ -989,6 +1113,13 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             @choose="saveTo"
         />
 
+        <ReferencePicker
+            v-model:open="referencePicking"
+            :containers="pickContainers"
+            :room="references.room.value"
+            @choose="references.attach($event)"
+        />
+
         <RevisionStory
             v-model:open="story.open"
             :item="story.item"
@@ -1059,6 +1190,16 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
 
 .dr-archive-card {
     margin-top: 1rem;
+}
+
+.dr-reference-images {
+    margin-top: 1.25rem;
+}
+
+/* Files are being dragged over the card: dropping them adds references. */
+.dr-dropping {
+    outline: 2px dashed var(--theme-color-primary, currentColor);
+    outline-offset: 4px;
 }
 
 .dr-generate {

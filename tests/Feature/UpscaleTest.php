@@ -256,7 +256,8 @@ class UpscaleTest extends TestCase
 
         $this->assertCount(2, $entries);
         $this->assertSame('upscale', $entries[0]['kind']);
-        $this->assertSame(0.24, $entries[0]['price']);
+        // The 4K image plus the source sent with it, which Google bills as input.
+        $this->assertSame(0.2411, $entries[0]['price']);
         $this->assertSame('Upscale: A lighthouse at dusk', $entries[0]['prompt']);
         $this->assertSame('generate', $entries[1]['kind']);
         $this->assertSame(0.045, $entries[1]['price']);

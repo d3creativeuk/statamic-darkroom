@@ -83,7 +83,7 @@ class GenerateContentClient extends AbstractGeminiClient
             $this->decode($image['data']),
             $image['mimeType'] ?? $image['mime_type'] ?? 'image/jpeg',
             $json['modelVersion'] ?? $request->model,
-            array_filter($json['usageMetadata'] ?? [], 'is_scalar'),
+            $this->usage($json['usageMetadata'] ?? [], 'promptTokensDetails', 'modality', 'tokenCount'),
         );
     }
 }

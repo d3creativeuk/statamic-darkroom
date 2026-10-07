@@ -10,6 +10,33 @@ export function usd(amount) {
     return '$' + amount.toFixed(amount < 0.1 ? 3 : 2);
 }
 
+/**
+ * Text made safe to put in a toast. Statamic shows toast messages as HTML, so
+ * anything someone else could have typed, such as a filename, is escaped.
+ */
+export function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+}
+
+/**
+ * An asset's filename from its id: "assets::photos/cat.jpg" -> "cat.jpg".
+ */
+export function assetName(id) {
+    const path = String(id ?? '');
+    const at = path.indexOf('::');
+
+    return (at === -1 ? path : path.slice(at + 2)).split('/').pop();
+}
+
+/**
+ * The price of one image plus the images sent with its prompt, which Google
+ * bills as well: reference images, or the picture being upscaled or revised.
+ * An unpriced size stays unpriced rather than looking free.
+ */
+export function withInputImages(model, price, count = 1) {
+    return price === null || price === undefined ? null : price + count * (model?.inputImagePrice ?? 0);
+}
+
 // Sizes from smallest to largest, as the API names them, with how each
 // relates to 1K. The API calls the smallest "512"; it is shown as 0.5K.
 export const SIZES = { 512: 0.5, '1K': 1, '2K': 2, '4K': 4 };

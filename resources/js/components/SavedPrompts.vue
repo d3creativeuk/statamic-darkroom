@@ -80,7 +80,7 @@ function create() {
             <form @submit.prevent="create">
                 <Field
                     :label="__('Name')"
-                    :instructions="__('Saved with the model, aspect ratio, quality, file type, folder and system instruction you have chosen.')"
+                    :instructions="__('Saved with the model, aspect ratio, quality, file type, folder and system instruction you have chosen, and any reference images from the asset library. Uploaded reference images are not kept.')"
                     instructions-below
                 >
                     <Input v-model="name" :focus="true" maxlength="120" />

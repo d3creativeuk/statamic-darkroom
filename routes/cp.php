@@ -6,6 +6,7 @@ use D3Creative\Darkroom\Http\Controllers\HistoryController;
 use D3Creative\Darkroom\Http\Controllers\InstructionController;
 use D3Creative\Darkroom\Http\Controllers\ItemController;
 use D3Creative\Darkroom\Http\Controllers\PromptController;
+use D3Creative\Darkroom\Http\Controllers\ReferenceController;
 use D3Creative\Darkroom\Http\Controllers\RevisionController;
 use D3Creative\Darkroom\Http\Controllers\StoryController;
 use D3Creative\Darkroom\Http\Controllers\TrashController;
@@ -45,6 +46,16 @@ Route::middleware('can:use darkroom')->prefix('darkroom')->name('darkroom.')->gr
     Route::post('story/forget', [StoryController::class, 'forget'])
         ->middleware('throttle:30,1,darkroom.story.forget')
         ->name('story.forget');
+
+    // One request per image, so adding fourteen at once is fourteen calls.
+    Route::post('references', [ReferenceController::class, 'store'])
+        ->middleware('throttle:60,1,darkroom.references.store')
+        ->name('references.store');
+
+    Route::get('references/{id}', [ReferenceController::class, 'show'])
+        ->where('id', '[0-9a-z]{26}')
+        ->middleware('throttle:240,1,darkroom.references.show')
+        ->name('references.show');
 
     Route::get('assets/preview', [RevisionController::class, 'preview'])
         ->middleware('throttle:120,1,darkroom.asset-preview')

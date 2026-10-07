@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import { Button, Description, Field, Heading, Select, Stack, Textarea } from '@statamic/cms/ui';
 import RevisionRound from './RevisionRound.vue';
-import { pixelSize, usd } from '../composables/format.js';
+import { pixelSize, usd, withInputImages } from '../composables/format.js';
 
 /**
  * The Revise panel: one feed of every round of revising an image, newest
@@ -132,7 +132,7 @@ const modelOptions = computed(() => props.models.map((candidate) => ({ value: ca
 const qualityOptions = computed(() =>
     (current.value?.qualities ?? []).map((option) => ({
         value: option.value,
-        label: [option.label, pixelSize(current.value.dimensions, props.base?.aspectRatio, option.value), usd(option.price)]
+        label: [option.label, pixelSize(current.value.dimensions, props.base?.aspectRatio, option.value), usd(withInputImages(current.value, option.price))]
             .filter(Boolean)
             .join(' · '),
     })),
@@ -149,7 +149,13 @@ function chooseQuality() {
 
 watch(model, chooseQuality);
 
-const priceOf = (modelId, size) => props.models.find((candidate) => candidate.id === modelId)?.qualities.find((option) => option.value === size)?.price ?? null;
+// A round sends one image, which Google bills as well, so every price here
+// includes it, as Spend does.
+const priceOf = (modelId, size) => {
+    const candidate = props.models.find((entry) => entry.id === modelId);
+
+    return withInputImages(candidate, candidate?.qualities.find((option) => option.value === size)?.price ?? null);
+};
 const price = computed(() => priceOf(model.value, quality.value));
 
 const written = computed(() => notes.value.filter((note) => note.text.trim()));

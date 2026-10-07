@@ -13,8 +13,10 @@ export class HttpError extends Error {
     static describe(status, data) {
         // A signed-out or expired session comes back as a bare
         // "Unauthenticated." or "CSRF token mismatch.", which tells nobody
-        // what to do, so these always get the plain-English version.
-        if ([401, 419].includes(status)) {
+        // what to do, so these always get the plain-English version. So does
+        // an upload too large for PHP or the web server, which answers with
+        // "The POST data is too large." or an HTML page.
+        if ([401, 413, 419].includes(status)) {
             return HttpError.MESSAGES[status];
         }
 
@@ -37,23 +39,28 @@ export class HttpError extends Error {
         return {
             401: __('Your session has expired. Reload the page and log in again.'),
             403: __('You are not allowed to do that.'),
+            413: __('That image is too large for this server to accept.'),
             419: __('Your session has expired. Reload the page and try again.'),
             429: __('Too many requests. Wait a moment and try again.'),
         };
     }
 }
 
+// A FormData body is sent as it is, for uploading a file. The browser sets
+// its Content-Type itself, with the boundary the server needs to read it.
 export async function http(method, url, body) {
+    const form = body instanceof FormData;
+
     const response = await fetch(url, {
         method,
         credentials: 'same-origin',
         headers: {
             Accept: 'application/json',
-            'Content-Type': 'application/json',
+            ...(form ? {} : { 'Content-Type': 'application/json' }),
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRF-TOKEN': Statamic.$config.get('csrfToken'),
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     });
 
     if (response.status === 204) {

@@ -143,6 +143,14 @@ function trashSelected() {
                         </Badge>
                         <Badge v-if="item.revision && !item.thread" size="sm" color="blue">{{ __('Revised') }}</Badge>
                         <Badge v-if="item.instructionTitle" size="sm" icon="ai-sparks">{{ item.instructionTitle }}</Badge>
+                        <Badge
+                            v-if="item.references?.length"
+                            size="sm"
+                            icon="assets"
+                            :title="item.references.map((reference) => reference.name).join(', ')"
+                        >
+                            {{ __('References (:n)', { n: item.references.length }) }}
+                        </Badge>
                     </div>
 
                     <!-- Opening the asset is the thumbnail's job. -->

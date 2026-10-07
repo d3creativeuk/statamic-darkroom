@@ -75,7 +75,7 @@ class UpscaleController extends CpController
             return $this->refuse('in_flight', 'Images are already being generated. Wait for them to finish.');
         }
 
-        $batch = $store->create([
+        $batch = $store->create(array_filter([
             'kind' => 'upscale',
             'user' => (string) $user->id(),
             'prompt' => $source['prompt'],
@@ -91,7 +91,10 @@ class UpscaleController extends CpController
             'folder' => $source['folder'],
             'upscaled_from' => $source['quality'],
             'source_mime' => $source['mime'],
-        ], 1);
+            // What the original was made from, kept so History and "Reuse
+            // prompt" still name it. Only the source is sent.
+            'references' => $source['references'] ?? null,
+        ], fn ($value) => $value !== null), 1);
 
         $store->putSource($batch['id'], $source['binary']);
 

@@ -20,6 +20,7 @@ class SmokeCommand extends Command
         {--quality=1K : 1K, 2K or 4K}
         {--ratio=1:1 : Aspect ratio, or "auto"}
         {--instruction= : A system instruction to send with the prompt}
+        {--reference=* : An image file to send with the prompt; repeat for more, in order}
         {--api= : "interactions" or "generate_content", defaults to the configured API}';
 
     protected $description = 'Generate one real image to check the API key and connection. This costs money.';
@@ -35,12 +36,29 @@ class SmokeCommand extends Command
             return self::FAILURE;
         }
 
+        // Made into JPEGs exactly as the page's reference images are.
+        $references = [];
+
+        foreach ($this->option('reference') as $file) {
+            if (! is_file($file) || ($binary = file_get_contents($file)) === false) {
+                $this->error("Cannot read the reference image \"{$file}\".");
+
+                return self::FAILURE;
+            }
+
+            $references[] = [
+                'mime_type' => 'image/jpeg',
+                'data' => $encoder->preview($binary, (int) ($config['references']['max_edge'] ?? 1536), (int) ($config['references']['quality'] ?? 85)),
+            ];
+        }
+
         $request = $models->request(
             $model,
             $this->argument('prompt'),
             $this->option('quality'),
             $this->option('ratio'),
             $this->option('instruction'),
+            $references,
         );
 
         $started = microtime(true);
@@ -61,7 +79,7 @@ class SmokeCommand extends Command
             'model_label' => $models->label($model),
             'quality' => $this->option('quality'),
             'aspect_ratio' => $this->option('ratio'),
-            'price' => $models->price($model, $this->option('quality')),
+            'price' => $models->priceWithInputs($model, $this->option('quality'), count($references)),
             'prompt' => $this->argument('prompt'),
         ]);
 
@@ -76,6 +94,8 @@ class SmokeCommand extends Command
             ['Type', $result->mimeType],
             ['Size', "{$width}x{$height}"],
             ['Bytes', number_format(strlen($result->binary))],
+            ['Input images', count($references)],
+            ['Input image tokens', $result->meta['input_image_tokens'] ?? '-'],
             ['Seconds', round(microtime(true) - $started, 1)],
             ['Saved to', $disk->path($path)],
         ]);

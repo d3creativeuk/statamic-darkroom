@@ -51,6 +51,8 @@ class PromptController extends CpController
             'file_type' => ['nullable', 'string', 'max:20'],
             'container' => ['nullable', 'string', 'max:255'],
             'folder' => ['nullable', 'string', 'max:255', Destinations::folderRule()],
+            'references' => ['nullable', 'array', 'max:'.(int) config('statamic-darkroom.references.max', 14)],
+            'references.*' => ['string', 'max:255'],
         ]);
     }
 }

@@ -10,8 +10,10 @@ use D3Creative\Darkroom\History\Trash;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use D3Creative\Darkroom\Prompts\PromptStore;
+use D3Creative\Darkroom\References\ReferenceStore;
 use D3Creative\Darkroom\Revisions\RevisionHistory;
 use D3Creative\Darkroom\Usage\UsageLog;
+use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 use Statamic\Facades\User;
 use Statamic\Http\Controllers\CP\CpController;
@@ -40,12 +42,14 @@ class DarkroomController extends CpController
         UsageLog $usage,
         Trash $trash,
         RevisionHistory $revisions,
+        ReferenceStore $references,
     ) {
         // Before pruning, so rounds still in temporary storage can fill in
         // the history of images saved before it was kept. Once only.
         $revisions->backfill();
 
         $batches->prune();
+        $references->prune();
 
         // As with batches, a site without the scheduler still has its trash
         // emptied whenever the page is opened. Content is only read when
@@ -71,6 +75,9 @@ class DarkroomController extends CpController
                 ->values()
                 ->all(),
             'containers' => $containers,
+            // Where reference images can be chosen from: anywhere the user can
+            // look, which may be wider than where they can save.
+            'pickContainers' => $destinations->forPicking($user),
             'defaults' => [
                 'model' => $models->defaultId(),
                 'aspectRatio' => $config['defaults']['aspect_ratio'] ?? '16:9',
@@ -85,6 +92,14 @@ class DarkroomController extends CpController
                 'prompt' => (int) ($config['prompts']['max_length'] ?? 8000),
                 'instruction' => (int) ($config['instructions']['max_length'] ?? 8000),
                 'pollInterval' => (int) ($config['poll_interval'] ?? 2000),
+                'references' => (int) ($config['references']['max'] ?? 14),
+                // The browser reduces an upload to this before sending it.
+                'referenceEdge' => (int) ($config['references']['max_edge'] ?? 1536),
+                // The smaller of Darkroom's limit and what this server accepts.
+                'referenceBytes' => (int) min(
+                    (int) ($config['references']['max_upload_kb'] ?? 20480) * 1024,
+                    UploadedFile::getMaxFilesize(),
+                ),
             ],
             'prompts' => $prompts->all(),
             'instructions' => $instructions->all(),
@@ -98,6 +113,7 @@ class DarkroomController extends CpController
             'usageIsEveryones' => UsageLog::scopeFor($user) === null,
             'urls' => [
                 'batches' => cp_route('darkroom.batches.store'),
+                'references' => cp_route('darkroom.references.store'),
                 'upscales' => cp_route('darkroom.upscales.store'),
                 'revisions' => cp_route('darkroom.revisions.store'),
                 'threads' => cp_route('darkroom.threads.show', '__thread__'),

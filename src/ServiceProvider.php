@@ -15,6 +15,7 @@ use D3Creative\Darkroom\Imaging\ImageEncoder;
 use D3Creative\Darkroom\Instructions\InstructionStore;
 use D3Creative\Darkroom\Models\ModelRegistry;
 use D3Creative\Darkroom\Prompts\PromptStore;
+use D3Creative\Darkroom\References\ReferenceStore;
 use D3Creative\Darkroom\Revisions\ReleaseOnDelete;
 use D3Creative\Darkroom\Revisions\RevisionHistory;
 use D3Creative\Darkroom\Revisions\ThreadAssets;
@@ -50,6 +51,7 @@ class ServiceProvider extends AddonServiceProvider
 
         $this->app->bind(ModelRegistry::class, fn () => new ModelRegistry($config()));
         $this->app->bind(BatchStore::class, fn () => new BatchStore($config()));
+        $this->app->bind(ReferenceStore::class, fn () => new ReferenceStore($config()));
         $this->app->bind(AssetSaver::class, fn ($app) => new AssetSaver($app->make(ImageEncoder::class), $config()));
         $this->app->bind(PromptStore::class, fn () => new PromptStore($config()['prompts']['path'] ?? null));
         $this->app->bind(InstructionStore::class, fn () => new InstructionStore($config()['instructions']['path'] ?? null));

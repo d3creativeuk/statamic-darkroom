@@ -78,6 +78,14 @@ function saveAll() {
                     </Badge>
                     <Badge v-if="batch.revision" size="sm" color="blue">{{ __('Revised') }}</Badge>
                     <Badge v-if="batch.instructionTitle" size="sm" icon="ai-sparks">{{ batch.instructionTitle }}</Badge>
+                    <Badge
+                        v-if="batch.references?.length"
+                        size="sm"
+                        icon="assets"
+                        :title="batch.references.map((reference) => reference.name).join(', ')"
+                    >
+                        {{ __('References (:n)', { n: batch.references.length }) }}
+                    </Badge>
                 </div>
             </div>
 
