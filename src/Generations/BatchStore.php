@@ -28,6 +28,10 @@ class BatchStore
     // longer than a generation before it is assumed dead.
     protected const SAVE_STALE_AFTER = 900;
 
+    // A batch with nothing left to deal with (all saved, discarded or failed)
+    // stays this long, so its rounds can still fill in a revised image's story.
+    protected const SETTLED_HOURS = 24;
+
     /**
      * @param  array<string, mixed>  $config  The statamic-darkroom config array.
      */
@@ -223,7 +227,31 @@ class BatchStore
      *
      * @return array<int, array<string, mixed>>
      */
-    public function openFor(string $userId, int $limit = 10): array
+    public function openFor(string $userId): array
+    {
+        $batches = [];
+
+        foreach ($this->ids() as $id) {
+            $batch = $this->find($id);
+
+            if ($batch && ($batch['user'] ?? null) === $userId) {
+                $batches[] = $batch;
+            }
+        }
+
+        // No limit: nothing unsaved expires unless the site sets an expiry,
+        // so a batch left off this list would be paid for and unreachable.
+        return $this->open($batches);
+    }
+
+    /**
+     * Of these batches, newest first, the ones that still have something to
+     * deal with.
+     *
+     * @param  array<int, array<string, mixed>>  $batches
+     * @return array<int, array<string, mixed>>
+     */
+    protected function open(array $batches): array
     {
         $open = [];
 
@@ -233,13 +261,7 @@ class BatchStore
         // round that settles a thread decides it.
         $settled = [];
 
-        foreach ($this->ids() as $id) {
-            $batch = $this->find($id);
-
-            if (! $batch || ($batch['user'] ?? null) !== $userId) {
-                continue;
-            }
-
+        foreach ($batches as $batch) {
             if ($thread = self::threadOf($batch)) {
                 $status = $batch['items'][0]['status'] ?? null;
 
@@ -254,10 +276,6 @@ class BatchStore
                 }
             } elseif ($this->has($batch, fn (ItemStatus $s) => $s->isOpen())) {
                 $open[] = $batch;
-            }
-
-            if (count($open) >= $limit) {
-                break;
             }
         }
 
@@ -318,18 +336,32 @@ class BatchStore
     }
 
     /**
-     * Remove batches older than the retention window. Returns how many went.
+     * Hours an unsaved image is kept before it is deleted, or null to keep it
+     * until someone saves or discards it.
+     */
+    public function retentionHours(): ?int
+    {
+        $hours = $this->config['temp']['retention_hours'] ?? null;
+
+        return is_numeric($hours) ? max(1, (int) $hours) : null;
+    }
+
+    /**
+     * Remove batches with nothing left to deal with once they are a day old,
+     * and batches with unsaved images only past the retention window, if the
+     * site sets one: an unsaved image has been paid for. Pass hours to use
+     * them for both instead. Returns how many went.
      */
     public function prune(?int $hours = null): int
     {
-        $hours ??= (int) ($this->config['temp']['retention_hours'] ?? 24);
-        $cutoff = now()->getTimestamp() - ($hours * 3600);
+        $hours ??= $this->retentionHours();
+        $now = now()->getTimestamp();
         $pruned = 0;
 
         $batches = [];
 
         foreach ($this->ids() as $id) {
-            $batches[$id] = $this->readJson("{$id}/batch.json");
+            $batches[$id] = $this->find($id);
         }
 
         // The rounds of a revision thread stay as long as anyone is still
@@ -343,13 +375,22 @@ class BatchStore
             }
         }
 
+        // A thread with a round still to deal with keeps all its rounds, since
+        // saving that round keeps the earlier ones in the library.
+        $open = [];
+
+        foreach ($this->open(array_values(array_filter($batches))) as $batch) {
+            $open[self::threadOf($batch) ?? $batch['id']] = true;
+        }
+
         foreach ($batches as $id => $batch) {
             $thread = $batch ? self::threadOf($batch) : null;
-            $age = $thread ? $active[$thread] : (int) ($batch['created_at'] ?? 0);
+            $age = $now - ($thread ? $active[$thread] : (int) ($batch['created_at'] ?? 0));
+            $limit = isset($open[$thread ?? $id]) ? $hours : ($hours ?? self::SETTLED_HOURS);
 
             // A directory with no readable batch.json is debris from an
             // interrupted write, so it goes too.
-            if (! $batch || $age < $cutoff) {
+            if (! $batch || ($limit !== null && $age > $limit * 3600)) {
                 $this->disk()->deleteDirectory($this->path($id));
                 $pruned++;
             }

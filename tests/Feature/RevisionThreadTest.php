@@ -305,6 +305,9 @@ class RevisionThreadTest extends TestCase
     #[Test]
     public function a_thread_being_worked_on_is_not_pruned_from_under_it()
     {
+        // Unsaved rounds are only ever deleted when the site sets an expiry.
+        config()->set('statamic-darkroom.temp.retention_hours', 24);
+
         $this->travelTo('2026-10-03 09:00:00');
         $first = $this->round($this->target($this->draft()));
 

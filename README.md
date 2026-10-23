@@ -54,7 +54,7 @@ The **Spend** tab shows each user only the images they generated. To let someone
 
 The estimated cost is shown next to the Generate button before you spend anything.
 
-Generated images are held in temporary storage and shown as previews. For each one you can set the filename, alt text and file type, then **Save to folder…** or **Discard**. Filenames are made URL-safe as you type or paste: lowercase, with spaces and punctuation turned into hyphens. Nothing reaches your asset library until you save it. If you reload the page, unsaved images are still there.
+Generated images are held in temporary storage and shown as previews. For each one you can set the filename, alt text and file type, then **Save to folder…** or **Discard**. Filenames are made URL-safe as you type or paste: lowercase, with spaces and punctuation turned into hyphens. Nothing reaches your asset library until you save it. Each unsaved image has already been paid for, so it stays until you save or discard it, however long that takes; reload the page or come back next week and it is still there. A note under its buttons says so. A site can set `temp.retention_hours` to delete unsaved images after a while instead, and the note then says when each one will go.
 
 ### Reference images
 
@@ -112,7 +112,7 @@ Like upscaling, each round is a redraw, so expect small differences elsewhere, a
 
 ### How a revised image was made
 
-When you save a revised round, the original and every round that led to it are saved too, at full size, in a `revisions` folder beside it: save `darkroom/kite.jpg` and you also get `darkroom/revisions/kite-original.jpg`, `kite-round-1.jpg` and so on. An original that was already in your asset library, or a round you saved as an image of its own, is not copied; it is used where it is. Rounds shared by two saved images are saved once. Rounds you never saved still go after 24 hours. The folder picker tells you before you save.
+When you save a revised round, the original and every round that led to it are saved too, at full size, in a `revisions` folder beside it: save `darkroom/kite.jpg` and you also get `darkroom/revisions/kite-original.jpg`, `kite-round-1.jpg` and so on. An original that was already in your asset library, or a round you saved as an image of its own, is not copied; it is used where it is. Rounds shared by two saved images are saved once. Rounds you never saved are cleared a day after you save the round they led to. The folder picker tells you before you save.
 
 In History, click a revised image, or its **Revisions (n)** button, to see its story, newest first: the image you saved and the notes that produced it, pinned on the image they were written on, then each earlier round the same way, down to the original and its prompt. From there you can open it in the asset editor, carry on revising it, or delete its revision history. Anyone who can view the image can see its story; an earlier image in a container they cannot view is shown as hidden. Moving or renaming any of these images does not break it: they are found by the data stored on them, not by their paths.
 
@@ -202,7 +202,7 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `file_types` | JPEG, WebP, PNG | The file types offered when saving |
 | `encode.quality` | `90` | Compression used when converting to WebP |
 | `save.apply_source_preset` | `false` | Run the container's source preset on saved images |
-| `temp.retention_hours` | `24` | How long unsaved images are kept |
+| `temp.retention_hours` | `null` | Hours before an unsaved image is deleted. `null` keeps it until it is saved or discarded |
 | `references.max` | `14` | Most reference images one generation can send. Google's limit is 14 |
 | `references.max_edge` | `1536` | Reference images are reduced to this many pixels on their longest side |
 | `references.max_request_mb` | `18` | A set of reference images larger than this in total, once encoded for sending, is refused. Google refuses requests over 20 MB |
@@ -225,7 +225,7 @@ If Google is overloaded or rate limited, each image is tried up to three times. 
 
 Saving works the same way, because warming Glide presets from a large source can take a while.
 
-Unsaved images live in `storage/app/statamic-darkroom/batches/`, and reference images in `storage/app/statamic-darkroom/references/`, outside the web root and private to the user who added them. Anything older than the retention period is removed whenever the page is opened, and daily by `darkroom:prune` if your site runs Laravel's scheduler.
+Unsaved images live in `storage/app/statamic-darkroom/batches/`, and reference images in `storage/app/statamic-darkroom/references/`, outside the web root and private to the user who added them. Unsaved images stay until they are saved or discarded, unless you set `temp.retention_hours`, so they take up disk space until someone deals with them; a 4K image is a few megabytes. Batches with nothing left to save, and reference images, are removed after a day. Clearing happens whenever the page is opened, and daily by `darkroom:prune` if your site runs Laravel's scheduler.
 
 The spend log is kept separately in `storage/app/statamic-darkroom/usage/`, one file per month, and is never pruned. It is not in Git, so each environment keeps its own.
 
@@ -238,7 +238,8 @@ php artisan darkroom:smoke "a red bicycle" --model=gemini-3.1-flash-lite-image
 # The same with reference images, sent in order. Repeat --reference for more.
 php artisan darkroom:smoke "a red bicycle in the style of the reference image" --reference=/path/to/style.jpg
 
-# Remove unsaved images and reference images older than the retention period,
+# Clear batches already saved or discarded, unsaved images past temp.retention_hours
+# if it is set, and reference images older than a day,
 # and delete anything in Trash for longer than 30 days that is not used on the site.
 php artisan darkroom:prune
 ```

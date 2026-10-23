@@ -410,8 +410,46 @@ class BatchLifecycleTest extends TestCase
     }
 
     #[Test]
-    public function old_batches_are_pruned()
+    public function unsaved_images_are_kept_until_someone_deals_with_them()
     {
+        Http::fake(['*' => Http::response($this->interactionsResponse())]);
+
+        $unsaved = $this->generate(['prompt' => 'Unsaved']);
+        $discarded = $this->generate(['prompt' => 'Discarded']);
+
+        $this->deleteJson(cp_route('darkroom.items.destroy', [$discarded['id'], 1]))->assertOk();
+
+        // A day is enough for a batch with nothing left in it.
+        $this->travel(25)->hours();
+
+        $this->artisan('darkroom:prune')->expectsOutput('Pruned 1 batch.')->assertSuccessful();
+
+        $this->assertNull($this->store()->find($discarded['id']));
+
+        // Paid for and never saved, so a month on it is still there.
+        $this->travel(30)->days();
+
+        $this->artisan('darkroom:prune')->expectsOutput('Pruned 0 batches.')->assertSuccessful();
+
+        $this->assertNotNull($this->store()->original($unsaved['id'], 1));
+        $this->assertSame([$unsaved['id']], array_column($this->store()->openFor('super'), 'id'));
+    }
+
+    #[Test]
+    public function every_unsaved_batch_comes_back_however_many_there_are()
+    {
+        Http::fake(['*' => Http::response($this->interactionsResponse())]);
+
+        $ids = array_map(fn ($n) => $this->generate(['prompt' => "Batch {$n}"])['id'], range(1, 12));
+
+        $this->assertSame(array_reverse($ids), array_column($this->store()->openFor('super'), 'id'));
+    }
+
+    #[Test]
+    public function a_configured_retention_deletes_unsaved_images_too()
+    {
+        config()->set('statamic-darkroom.temp.retention_hours', 24);
+
         Http::fake(['*' => Http::response($this->interactionsResponse())]);
 
         $old = $this->generate(['prompt' => 'Old']);

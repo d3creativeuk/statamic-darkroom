@@ -11,10 +11,10 @@ use Illuminate\Console\Command;
 class PruneCommand extends Command
 {
     protected $signature = 'darkroom:prune
-        {--hours= : Remove batches and reference images older than this many hours instead of the configured retention}
+        {--hours= : Remove batches, unsaved images included, and reference images older than this many hours}
         {--days= : Empty trash older than this many days instead of the configured retention}';
 
-    protected $description = 'Remove generated images that were never saved or discarded, old reference images, and old trash';
+    protected $description = 'Clear generated images already saved or discarded, unsaved ones past any configured retention, old reference images, and old trash';
 
     public function handle(BatchStore $store, Trash $trash, RevisionHistory $revisions, ReferenceStore $references): int
     {

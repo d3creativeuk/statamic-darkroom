@@ -241,14 +241,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | Generated images wait here, outside the web root, until they are saved
-    | or discarded. Anything older than "retention_hours" is pruned.
+    | or discarded. They have already been paid for, so by default nothing
+    | unsaved is ever deleted on its own. Set "retention_hours" to delete
+    | unsaved images that old; the page then says when each one will go.
+    | Images that are saved, discarded or failed are cleared after a day.
     |
     */
 
     'temp' => [
         'disk' => 'local',
         'path' => 'statamic-darkroom/batches',
-        'retention_hours' => 24,
+        'retention_hours' => null,
     ],
 
     'preview' => [
@@ -264,8 +267,9 @@ return [
     | Images sent with a prompt for the model to work from: a style, a product,
     | a person. Uploads and picks from the asset library are both turned into
     | a JPEG no larger than "max_edge" and kept here, outside the web root and
-    | outside every asset container, for "temp.retention_hours". They never
-    | become assets, so no Glide presets are made from them.
+    | outside every asset container, for a day ("temp.retention_hours" if it
+    | is set). They never become assets, so no Glide presets are made from
+    | them.
     |
     | Google accepts up to 14 images per request, and at most 20 MB in total
     | once encoded. "max_request_mb" refuses a set that would come close.

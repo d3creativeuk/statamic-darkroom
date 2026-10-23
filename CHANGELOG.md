@@ -15,6 +15,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ### Changed
 
+- **Unsaved images are no longer deleted after 24 hours.** They have already been paid for, so they now stay until you save or discard them, and a note under each card's buttons says so. `temp.retention_hours` now defaults to `null`; set a number of hours to bring back automatic deletion, and the note then says when each image will go. Every unsaved batch now comes back after a reload, not just the newest ten.
 - When Google refuses a request because the project's prepaid credit is used up, the message now says so and points to AI Studio, where credit is added.
 
 ## [1.2.0] - 2026-10-09

@@ -53,6 +53,8 @@ const props = defineProps({
     history: { type: Object, required: true },
     trash: { type: Array, default: () => [] },
     trashDays: { type: Number, default: 30 },
+    // Null unless the site deletes unsaved images after this many hours.
+    retentionHours: { type: Number, default: null },
     // Where a revised image's earlier steps are kept when it is saved, or
     // null when they are not.
     revisionHistory: { type: Object, default: null },
@@ -1036,6 +1038,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :batch="batch"
             :file-types="fileTypes"
             :busy="acting"
+            :retention-hours="retentionHours"
             :can-upscale="ready && !generating && !submitting && canUpscale(batch.quality)"
             :can-revise="ready && !generating && !submitting"
             @upscale="(item) => askToUpscale({ quality: batch.quality, model: batch.model, aspectRatio: batch.aspectRatio }, { batch: batch.id, index: item.index })"

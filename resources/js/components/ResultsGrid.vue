@@ -8,6 +8,7 @@ const props = defineProps({
     batch: { type: Object, required: true },
     fileTypes: { type: Array, required: true },
     busy: { type: Boolean, default: false },
+    retentionHours: { type: Number, default: null },
     canUpscale: { type: Boolean, default: false },
     canRevise: { type: Boolean, default: false },
 });
@@ -115,6 +116,7 @@ function saveAll() {
                     :batch="batch"
                     :file-types="fileTypes"
                     :busy="busy"
+                    :retention-hours="retentionHours"
                     :can-upscale="canUpscale"
                     :can-revise="canRevise"
                     :writing-alt="!!writing[item.index]"

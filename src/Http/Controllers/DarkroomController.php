@@ -104,6 +104,8 @@ class DarkroomController extends CpController
             'prompts' => $prompts->all(),
             'instructions' => $instructions->all(),
             'batches' => array_map([$presenter, 'present'], $batches->openFor((string) $user->id())),
+            // Null unless the site deletes unsaved images after a while.
+            'retentionHours' => $batches->retentionHours(),
             'history' => $history->page($user),
             'trash' => $trash->list($user),
             'trashDays' => $trash->retentionDays(),

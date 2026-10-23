@@ -8,6 +8,8 @@ const props = defineProps({
     batch: { type: Object, required: true },
     fileTypes: { type: Array, required: true },
     busy: { type: Boolean, default: false },
+    // Null unless the site deletes unsaved images after this many hours.
+    retentionHours: { type: Number, default: null },
     // Whether any model can make this image larger than it is.
     canUpscale: { type: Boolean, default: false },
     // Whether a new image can be started now, so it can be revised.
@@ -54,6 +56,25 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => clearInterval(ticker));
+
+// It has been paid for, so say plainly that it is not in the library yet and
+// whether it will ever go on its own. A revision round can outlast this
+// estimate (its thread is kept from its newest round), never fall short of it.
+const keepNote = computed(() => {
+    if (!props.retentionHours) {
+        return __('Not saved yet. It stays here until you save or discard it.');
+    }
+
+    const left = props.retentionHours - elapsed.value / 3600;
+
+    if (left < 1) {
+        return __('Not saved yet. It will be deleted within the hour unless you save it.');
+    }
+
+    return left < 48
+        ? __('Not saved yet. It will be deleted in about :count hours unless you save it.', { count: Math.round(left) })
+        : __('Not saved yet. It will be deleted in about :count days unless you save it.', { count: Math.round(left / 24) });
+});
 </script>
 
 <template>
@@ -161,6 +182,8 @@ onBeforeUnmount(() => clearInterval(ticker));
                         {{ __('Discard') }}
                     </Button>
                 </div>
+
+                <p v-if="item.status === 'complete'" class="dr-card-keep">{{ keepNote }}</p>
             </template>
 
             <!-- There is no "saved" state here. Once an image is saved it leaves
@@ -297,6 +320,12 @@ onBeforeUnmount(() => clearInterval(ticker));
     align-items: center;
     gap: 0.5rem;
     margin-top: 0.25rem;
+}
+
+.dr-card-keep {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    opacity: 0.65;
 }
 
 </style>

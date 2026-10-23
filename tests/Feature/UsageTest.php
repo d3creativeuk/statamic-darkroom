@@ -176,7 +176,8 @@ class UsageTest extends TestCase
 
         $this->travel(3)->days();
 
-        $this->assertSame(1, app(BatchStore::class)->prune());
+        // Given hours, so the unsaved image goes too.
+        $this->assertSame(1, app(BatchStore::class)->prune(24));
         $this->assertSame(1, $this->months()[0]['images']);
     }
 
