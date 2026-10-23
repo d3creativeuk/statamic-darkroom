@@ -45,9 +45,9 @@ The **Spend** tab shows each user only the images they generated. To let someone
 
 | Control | What it does |
 |---|---|
-| Model | Nano Banana Pro, Nano Banana 2 or Nano Banana 2 Lite, with Google's description of the chosen one shown below the menu |
-| Aspect ratio | Auto, 1:1, 3:4, 4:3, 2:3, 3:2, 9:16, 16:9, 5:4, 4:5 or 21:9. Auto lets the model choose |
-| Quality | 1K, 2K or 4K, with the pixel size shown where it is known. Nano Banana 2 also offers 0.5K. Lite produces 1K only, a limit of the model: Google refuses larger sizes for it |
+| Model | Nano Banana Pro, Nano Banana 2.1, Nano Banana 2 or Nano Banana 2 Lite, with Google's description of the chosen one shown below the menu |
+| Aspect ratio | Auto, 1:1, 3:4, 4:3, 2:3, 3:2, 9:16, 16:9, 5:4, 4:5 or 21:9. Nano Banana 2.1 adds the tall and panoramic 1:4, 4:1, 1:8 and 8:1. Auto lets the model choose |
+| Quality | 1K, 2K or 4K, with the pixel size shown where it is known. Nano Banana 2.1 and 2 also offer 0.5K. Lite produces 1K only, a limit of the model: Google refuses larger sizes for it |
 | File type | JPEG, WebP or PNG |
 | Batch size | 1 to 4 images from the same prompt. Always starts at 1 |
 | Reference images | Up to 14 images for the model to work from: a style, a product, a person. Optional |
@@ -62,7 +62,7 @@ Reference images give the model something to work from as well as the prompt: a 
 
 Some things learned from testing (5 October 2026):
 
-- **All three models follow a style reference**, although Google only lists style references for Nano Banana Pro. They also tend to borrow its layout. Say "use only its style, not its layout" if that is not wanted.
+- **Pro, Nano Banana 2 and Lite all follow a style reference**, although Google only lists style references for Nano Banana Pro. They also tend to borrow its layout. Say "use only its style, not its layout" if that is not wanted.
 - **Numbers are followed.** Given the same two images in the same order, swapping "image 1" and "image 2" in the prompt swapped what was taken from each.
 - **The system instruction is still sent**, but a style reference largely wins over it. A watercolour instruction added a few watercolour touches to an image made in the style of a collage.
 - **Auto takes the shape of the reference.** Choose an aspect ratio to override it.
@@ -85,14 +85,14 @@ The model is `gemini-3.5-flash-lite` by default. Change `alt_text.model` to use 
 
 ### Drafting small, then upscaling
 
-Drafts can be small. Nano Banana 2 at 0.5K costs $0.045, a third less than its 1K, and a 16:9 image comes back at 688 × 384. When one is worth keeping, **Upscale** sends it back to the model and asks for the same image at a larger size. Upscale is on every unsaved image and on every image in History, so you can also enlarge something you saved earlier.
+Drafts can be small. Nano Banana 2.1 at 0.5K costs about $0.022, a third less than its 1K, and a 16:9 image comes back at 688 × 384. When one is worth keeping, **Upscale** sends it back to the model and asks for the same image at a larger size. Upscale is on every unsaved image and on every image in History, so you can also enlarge something you saved earlier.
 
 You choose the model and the target size, with the pixel size and the cost shown for each. The result appears as a new image to preview and save; the one it came from is left alone.
 
 Two things to know:
 
 - **It is a redraw, not an enlargement.** The composition, subject and colours hold, but fine detail can shift, small lettering in particular. In testing, Nano Banana Pro kept text and detail intact where Nano Banana 2 altered some of it, so Pro is suggested by default.
-- **0.5K is only offered on Nano Banana 2.** Pro and Lite accept the size but bill it as a 1K image and were no faster at it, so they offer 1K and up. At $0.0336 for 1K, Lite is the cheapest draft of all.
+- **0.5K is only offered on Nano Banana 2.1 and 2.** Pro and Lite accept the size but bill it as a 1K image and were no faster at it, so they offer 1K and up. Google's documentation says 2.1 has no 0.5K, but it produced and billed one in testing.
 
 The system instruction is not sent with an upscale. The image already carries the style.
 
@@ -104,7 +104,7 @@ The Revise panel is a feed of every round so far, newest first, with the origina
 
 Each round appears at the top of the feed with your notes and the image that came back, and the panel moves on to it when it is ready, so you can keep going. Any round can be the starting point for the next: click **Revise from this** to go back to an earlier one, which is the way to undo a round that went wrong; its image and the note boxes move there. Rounds that started somewhere other than the round before them say so ("from round 1"). Save any round from the feed, or from its card on the page.
 
-Rounds remember each other. The model sees the earlier rounds of the thread, so a note can refer back to them, and the feed marks a round **Remembered earlier rounds**. To do this, Google keeps each revision round (the image, your notes and what came back) for your project's retention period, up to 55 days, and it is visible in Google AI Studio's logs. Set `DARKROOM_REVISION_MEMORY=false` to keep nothing on Google's side; each round then stands alone, sending the image with its notes. Remembering costs the same as not: only the latest image is billed as input. New images and upscales are never kept. When a conversation is too old or has gone, or a saved image has been cropped or replaced since, the round simply starts fresh from the image, and the feed says so.
+Rounds remember each other. The model sees the earlier rounds of the thread, so a note can refer back to them, and the feed marks a round **Remembered earlier rounds**. To do this, Google keeps each revision round (the image, your notes and what came back) for your project's retention period, up to 55 days, and it is visible in Google AI Studio's logs. Set `DARKROOM_REVISION_MEMORY=false` to keep nothing on Google's side; each round then stands alone, sending the image with its notes. On Pro, Nano Banana 2 and Lite, remembering costs the same as not: only the latest image is billed as input. Nano Banana 2.1 bills every image in the conversation so far, about $0.0017 each, which Darkroom's estimates and Spend do not include. New images and upscales are never kept. When a conversation is too old or has gone, or a saved image has been cropped or replaced since, the round simply starts fresh from the image, and the feed says so.
 
 The working area shows one card per revision thread: its latest round, with **Revisions (n)** to reopen the feed. Once you save that round, the thread moves to History with it. A saved round keeps the original prompt and style and the line of rounds that led to it, so opening Revise on it from History brings the feed back, even after its unsaved rounds have been cleared away.
 
@@ -152,7 +152,7 @@ These are estimates in US dollars. Your Google invoice is the real figure: it al
 
 Tone and style notes that are sent along with every image, such as a house illustration style or a colour palette. Save as many as you like, give each a title, and mark one as the default to have it selected whenever the page loads.
 
-Nano Banana Pro and Nano Banana 2 honour system instructions directly. Nano Banana 2 Lite ignores them, so for that model Darkroom places the instruction at the start of the prompt instead. The page tells you when this applies.
+Nano Banana Pro, Nano Banana 2.1 and Nano Banana 2 honour system instructions directly. Nano Banana 2 Lite ignores them, so for that model Darkroom places the instruction at the start of the prompt instead. The page tells you when this applies.
 
 ### Saved prompts
 
@@ -171,15 +171,16 @@ Full-size sources are large. A 4K JPEG is around 9 MB.
 
 ## Prices
 
-Google bills per image, in US dollars. These are the list prices Darkroom ships with, correct on 30 September 2026. Check [Google's pricing page](https://ai.google.dev/gemini-api/docs/pricing) and update the config if they change.
+Google bills per image, in US dollars. These are the list prices Darkroom ships with, correct on 23 October 2026. Check [Google's pricing page](https://ai.google.dev/gemini-api/docs/pricing) and update the config if they change.
 
 | Model | 0.5K | 1K | 2K | 4K |
 |---|---|---|---|---|
 | Nano Banana Pro | not offered | $0.134 | $0.134 | $0.24 |
+| Nano Banana 2.1 | about $0.022 | $0.0336 | $0.0504 | $0.113 |
 | Nano Banana 2 | $0.045 | $0.0672 | $0.101 | $0.151 |
 | Nano Banana 2 Lite | not offered | $0.0336 | not available | not available |
 
-Each image sent with the prompt is billed as well: a reference image, or the image being upscaled or revised. Google charges a flat number of tokens for each, which comes to $0.0011 on Nano Banana Pro, about $0.00056 on Nano Banana 2 and about $0.00028 on Lite. With 14 references, that adds about 12% to the price of a 1K image, or of a 2K image on Nano Banana Pro, 5 to 8% at the other 2K and 4K sizes, and about 17% to a 0.5K image on Nano Banana 2.
+Each image sent with the prompt is billed as well: a reference image, or the image being upscaled or revised. Google charges a flat number of tokens for each, which comes to $0.0011 on Nano Banana Pro, about $0.0017 on Nano Banana 2.1, about $0.00056 on Nano Banana 2 and about $0.00028 on Lite. With 14 references, that adds about 12% to the price of a 1K image, or of a 2K image on Nano Banana Pro, 5 to 8% at the other 2K and 4K sizes, and about 17% to a 0.5K image on Nano Banana 2. Nano Banana 2.1 is the exception, because its images are cheap and its input is not: 14 references add about $0.024, which is 70% of a 1K image, half of a 2K one and a fifth of a 4K one.
 
 A batch costs the price of one image, plus its reference images, multiplied by the batch size. An upscale costs the price of one image at the size you upscale to, plus the image it is given. The figure shown in the Control Panel is an estimate from these numbers, not a bill.
 
@@ -195,7 +196,7 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 |---|---|---|
 | `api_key` | `GEMINI_API_KEY` | Your Google API key |
 | `default_model` | `gemini-3-pro-image` | The model selected on first visit. Also `DARKROOM_MODEL` |
-| `models` | three models | Each model's label, description, qualities with prices, the price of an image sent with the prompt, aspect ratios and how it takes a system instruction. Add or retire a model here |
+| `models` | four models | Each model's label, description, qualities with prices, the price of an image sent with the prompt, aspect ratios and how it takes a system instruction. Add or retire a model here |
 | `batch.max` | `4` | Largest batch allowed |
 | `defaults` | 16:9, 2K, JPEG | What the form starts with, including a default container and folder |
 | `file_types` | JPEG, WebP, PNG | The file types offered when saving |

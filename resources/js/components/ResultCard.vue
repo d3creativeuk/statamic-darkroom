@@ -194,14 +194,18 @@ onBeforeUnmount(() => clearInterval(ticker));
     background: color-mix(in oklab, currentColor 6%, transparent);
 }
 
+/* Capped so a 1:8 or 1:4 image fits on screen, shown whole inside the card. */
 .dr-card-image img {
     display: block;
     width: 100%;
     height: auto;
+    max-height: 70vh;
+    object-fit: contain;
 }
 
 .dr-card-placeholder {
     position: relative;
+    max-height: 70vh;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -4,10 +4,13 @@
 // order the menu shows them. "auto" sends no ratio and lets the model choose.
 $aspectRatios = ['auto', '1:1', '3:4', '4:3', '2:3', '3:2', '9:16', '16:9', '5:4', '4:5', '21:9'];
 
+// The tall and panoramic ratios Nano Banana 2.1 adds.
+$panoramicRatios = ['1:4', '4:1', '1:8', '8:1'];
+
 // Pixel sizes Google returns, measured from real responses. 2K and 4K are
 // exact multiples of 1K. 0.5K is not a clean half (it is rounded to steps of
-// 16 pixels), so it has its own table. The same sizes came back from all
-// three models.
+// 16 pixels), so it has its own table. The same sizes came back from every
+// model; the panoramic ratios were measured on Nano Banana 2.1.
 $dimensions = [
     '512' => [
         '1:1' => [512, 512],
@@ -20,6 +23,10 @@ $dimensions = [
         '5:4' => [576, 464],
         '4:5' => [464, 576],
         '21:9' => [784, 336],
+        '1:4' => [256, 1024],
+        '4:1' => [1024, 256],
+        '1:8' => [176, 1456],
+        '8:1' => [1456, 176],
     ],
     '1K' => [
         '1:1' => [1024, 1024],
@@ -32,6 +39,10 @@ $dimensions = [
         '5:4' => [1152, 928],
         '4:5' => [928, 1152],
         '21:9' => [1584, 672],
+        '1:4' => [512, 2064],
+        '4:1' => [2064, 512],
+        '1:8' => [352, 2928],
+        '8:1' => [2928, 352],
     ],
 ];
 
@@ -78,10 +89,11 @@ return [
     | each model's input rate. It is added to estimates and to Spend. A config
     | published before this setting existed gets the shipped price.
     |
-    | "512" is the 0.5K size, for quick drafts. The API accepts it on all three
-    | models, but only Nano Banana 2 charges less for it. Pro and Lite bill it
-    | as 1K and were no faster at it (Pro about 20s, Lite about 3s at either
-    | size), so it is only offered where it saves money.
+    | "512" is the 0.5K size, for quick drafts. The API accepts it on every
+    | model, but only Nano Banana 2 and 2.1 charge less for it. Pro and Lite
+    | bill it as 1K and were no faster at it (Pro about 20s, Lite about 3s at
+    | either size), so it is only offered where it saves money. Google's docs
+    | say 2.1 has no 0.5K; it accepted it and billed 747 tokens, as 2 does.
     |
     */
 
@@ -95,6 +107,16 @@ return [
             'qualities' => ['1K' => 0.134, '2K' => 0.134, '4K' => 0.24],
             'input_image_price' => 0.0011,
             'aspect_ratios' => $aspectRatios,
+            'system_instruction' => 'native',
+            'dimensions' => $dimensions,
+        ],
+
+        'gemini-nano-banana-2.1' => [
+            'label' => 'Nano Banana 2.1',
+            'description' => 'High-efficiency image generation and editing model with improved visual quality, typography, and multi-turn consistency.',
+            'qualities' => ['512' => 0.0224, '1K' => 0.0336, '2K' => 0.0504, '4K' => 0.113],
+            'input_image_price' => 0.00168,
+            'aspect_ratios' => [...$aspectRatios, ...$panoramicRatios],
             'system_instruction' => 'native',
             'dimensions' => $dimensions,
         ],

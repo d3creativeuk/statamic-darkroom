@@ -79,7 +79,24 @@ class BatchLifecycleTest extends TestCase
             }
         }
 
-        Http::assertSentCount(9);
+        Http::assertSentCount(12);
+    }
+
+    #[Test]
+    public function the_panoramic_ratios_are_sent_for_nano_banana_2_1_and_refused_for_other_models()
+    {
+        Http::fake(['*' => Http::response($this->interactionsResponse())]);
+
+        $this->generate(['model' => 'gemini-nano-banana-2.1', 'quality' => '1K', 'aspect_ratio' => '1:8']);
+
+        Http::assertSent(fn (Request $request) => $request['model'] === 'gemini-nano-banana-2.1'
+            && $request['response_format']['aspect_ratio'] === '1:8');
+
+        $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload(['model' => 'gemini-3-pro-image', 'quality' => '1K', 'aspect_ratio' => '1:8']))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.aspect_ratio.0', 'Nano Banana Pro does not support the 1:8 aspect ratio.');
+
+        Http::assertSentCount(1);
     }
 
     #[Test]

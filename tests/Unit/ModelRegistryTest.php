@@ -48,6 +48,32 @@ class ModelRegistryTest extends TestCase
     }
 
     #[Test]
+    public function nano_banana_2_1_adds_the_panoramic_ratios_and_keeps_0_5k()
+    {
+        $registry = $this->registry();
+
+        $this->assertSame(
+            ['auto', '1:1', '3:4', '4:3', '2:3', '3:2', '9:16', '16:9', '5:4', '4:5', '21:9', '1:4', '4:1', '1:8', '8:1'],
+            $registry->aspectRatios('gemini-nano-banana-2.1'),
+        );
+        $this->assertSame(['512', '1K', '2K', '4K'], $registry->qualities('gemini-nano-banana-2.1'));
+        $this->assertSame('native', $registry->instructionMode('gemini-nano-banana-2.1'));
+
+        // Measured on 23 October 2026. 0.5K is rounded, 2K and 4K scale exactly.
+        $this->assertSame([176, 1456], $registry->dimensions('gemini-nano-banana-2.1', '1:8', '512'));
+        $this->assertSame([1024, 256], $registry->dimensions('gemini-nano-banana-2.1', '4:1', '512'));
+        $this->assertSame([2928, 352], $registry->dimensions('gemini-nano-banana-2.1', '8:1', '1K'));
+        $this->assertSame([512, 2064], $registry->dimensions('gemini-nano-banana-2.1', '1:4', '1K'));
+        $this->assertSame([704, 5856], $registry->dimensions('gemini-nano-banana-2.1', '1:8', '2K'));
+        $this->assertSame([5504, 3072], $registry->dimensions('gemini-nano-banana-2.1', '16:9', '4K'));
+
+        // Half the price of Nano Banana 2 up to 2K; its input rate is three times higher.
+        $this->assertSame(0.0336, $registry->price('gemini-nano-banana-2.1', '1K'));
+        $this->assertSame(0.113, $registry->price('gemini-nano-banana-2.1', '4K'));
+        $this->assertSame(0.00168, $registry->inputImagePrice('gemini-nano-banana-2.1'));
+    }
+
+    #[Test]
     public function each_model_has_a_description()
     {
         $registry = $this->registry();

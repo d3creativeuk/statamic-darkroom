@@ -33,14 +33,16 @@ class PageTest extends TestCase
             ->where('defaults.container', 'assets')
             ->where('defaults.instruction', null)
             ->where('limits.batchMax', 4)
-            ->has('models', 3)
+            ->has('models', 4)
             ->where('models.0.label', 'Nano Banana Pro')
             ->where('models.0.aspectRatios', ['auto', '1:1', '3:4', '4:3', '2:3', '3:2', '9:16', '16:9', '5:4', '4:5', '21:9'])
             ->where('models.0.description', 'State-of-the-art image generation and editing model.')
             ->where('models.0.qualities.0', ['value' => '1K', 'label' => '1K', 'price' => 0.134])
             ->where('models.0.qualities.2', ['value' => '4K', 'label' => '4K', 'price' => 0.24])
-            ->where('models.1.qualities.0', ['value' => '512', 'label' => '0.5K', 'price' => 0.045])
-            ->where('models.2.qualities', [
+            ->where('models.1.label', 'Nano Banana 2.1')
+            ->where('models.1.qualities.0', ['value' => '512', 'label' => '0.5K', 'price' => 0.0224])
+            ->where('models.2.qualities.0', ['value' => '512', 'label' => '0.5K', 'price' => 0.045])
+            ->where('models.3.qualities', [
                 ['value' => '1K', 'label' => '1K', 'price' => 0.0336],
             ])
             ->where('fileTypes.0', ['value' => 'jpg', 'label' => 'JPEG'])

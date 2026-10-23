@@ -8,6 +8,11 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ## [Unreleased]
 
+### Added
+
+- **Nano Banana 2.1** (`gemini-nano-banana-2.1`), Google's update to Nano Banana 2, which Google has deprecated in its favour. It costs half as much up to 2K ($0.0336 at 1K, $0.0504 at 2K, $0.113 at 4K), offers 0.5K at about $0.022, honours system instructions and remembers earlier revision rounds. It is listed after Nano Banana Pro, which stays the default.
+- **Tall and panoramic aspect ratios** on Nano Banana 2.1: 1:4, 4:1, 1:8 and 8:1, with their pixel sizes measured. Result cards are capped in height so a 1:8 image still fits on screen.
+
 ### Changed
 
 - When Google refuses a request because the project's prepaid credit is used up, the message now says so and points to AI Studio, where credit is added.
