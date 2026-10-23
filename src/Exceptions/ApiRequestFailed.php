@@ -36,7 +36,8 @@ class ApiRequestFailed extends DarkroomException
         return match (true) {
             $this->status === 0 => 'Could not reach Google. Check the connection and try again.',
             in_array($this->status, [401, 403], true) => 'Google rejected the API key. Check GEMINI_API_KEY and that the key can use this model.',
-            $this->status === 402 => 'The Google account has run out of credit.',
+            // Gemini answers 402 only when a prepay project's balance is spent.
+            $this->status === 402 => "The Google project's prepaid credit has run out. Add credit in AI Studio at ai.studio/projects.",
             $this->status === 404 => 'Google does not recognise this model. It may have been retired.',
             $this->status === 429 => "Google's rate or spend limit was reached. Wait a minute and try again.",
             $this->status >= 500 => "Google's image service is overloaded right now. Try again shortly.",

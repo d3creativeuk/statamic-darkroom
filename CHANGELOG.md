@@ -6,6 +6,12 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
 (`composer.json` carries no `version` field).
 
+## [Unreleased]
+
+### Changed
+
+- When Google refuses a request because the project's prepaid credit is used up, the message now says so and points to AI Studio, where credit is added.
+
 ## [1.2.0] - 2026-10-09
 
 ### Added
