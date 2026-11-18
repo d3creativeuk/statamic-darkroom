@@ -37,6 +37,23 @@ trait FindsBatches
         abort(404);
     }
 
+    /**
+     * A refusal if the user already has as many batches generating as they
+     * may, so a double click or a second tab cannot quietly multiply the bill.
+     */
+    protected function refuseWhenFull(BatchStore $store, string $userId): ?JsonResponse
+    {
+        if ($store->hasRoomFor($userId)) {
+            return null;
+        }
+
+        $max = $store->maxInFlight();
+
+        return $this->refuse('in_flight', $max === 1
+            ? 'Images are already being generated. Wait for them to finish.'
+            : "You already have {$max} generations running, the most at once. Wait for one to finish.");
+    }
+
     protected function refuse(string $code, string $message, int $status = 409): JsonResponse
     {
         return response()->json(['code' => $code, 'message' => $message], $status);

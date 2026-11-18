@@ -89,6 +89,7 @@ class DarkroomController extends CpController
             ],
             'limits' => [
                 'batchMax' => (int) ($config['batch']['max'] ?? 4),
+                'maxInFlight' => $batches->maxInFlight(),
                 'prompt' => (int) ($config['prompts']['max_length'] ?? 8000),
                 'instruction' => (int) ($config['instructions']['max_length'] ?? 8000),
                 'pollInterval' => (int) ($config['poll_interval'] ?? 2000),
@@ -126,6 +127,7 @@ class DarkroomController extends CpController
                 'prompts' => cp_route('darkroom.prompts.store'),
                 'instructions' => cp_route('darkroom.instructions.store'),
                 'history' => cp_route('darkroom.history.index'),
+                'favourite' => cp_route('darkroom.favourites.update'),
                 'forget' => cp_route('darkroom.history.forget'),
                 'trash' => cp_route('darkroom.trash.index'),
                 'restore' => cp_route('darkroom.trash.restore'),

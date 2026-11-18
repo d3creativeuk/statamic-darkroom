@@ -2,6 +2,7 @@
 
 use D3Creative\Darkroom\Http\Controllers\BatchController;
 use D3Creative\Darkroom\Http\Controllers\DarkroomController;
+use D3Creative\Darkroom\Http\Controllers\FavouriteController;
 use D3Creative\Darkroom\Http\Controllers\HistoryController;
 use D3Creative\Darkroom\Http\Controllers\InstructionController;
 use D3Creative\Darkroom\Http\Controllers\ItemController;
@@ -98,6 +99,10 @@ Route::middleware('can:use darkroom')->prefix('darkroom')->name('darkroom.')->gr
     Route::get('history', [HistoryController::class, 'index'])
         ->middleware('throttle:120,1,darkroom.history')
         ->name('history.index');
+
+    Route::post('favourites', [FavouriteController::class, 'update'])
+        ->middleware('throttle:120,1,darkroom.favourites')
+        ->name('favourites.update');
 
     Route::get('trash', [TrashController::class, 'index'])
         ->middleware('throttle:120,1,darkroom.trash')

@@ -6,6 +6,16 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Releases are git-tag driven
 (`composer.json` carries no `version` field).
 
+## [Unreleased]
+
+### Added
+
+- **Favourites.** A heart on every History card adds the image to your favourites, which get their own tab beside History, shown as a heart with a count. Favourites are personal, are stored on the asset with its other Darkroom data, and can be searched and paged like History.
+
+### Changed
+
+- **Generate while another generation is running.** Up to three generations, upscales or revision rounds can now run at once per person, so the next prompt can go as soon as the last one is sent. Set `batch.max_in_flight` (or `DARKROOM_MAX_IN_FLIGHT`) to change the number; `1` brings back one at a time. Each running generation keeps a PHP worker busy, so see the README before raising it.
+
 ## [1.3.1] - 2026-10-30
 
 ### Fixed

@@ -13,9 +13,11 @@ const props = defineProps({
     meta: { type: Object, required: true },
     loading: { type: Boolean, default: false },
     disabled: { type: Boolean, default: false },
+    // The Favourites tab: the same cards, only the hearted ones.
+    favourites: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['reuse', 'upscale', 'revise', 'open', 'story', 'page', 'per-page', 'trash']);
+const emit = defineEmits(['reuse', 'upscale', 'revise', 'open', 'story', 'favourite', 'page', 'per-page', 'trash']);
 
 // Searches prompts, filenames, alt text and instruction titles. The page
 // does the fetching.
@@ -57,7 +59,11 @@ function trashSelected() {
 
 <template>
     <div>
-        <Description v-if="!all">
+        <Description v-if="!all && favourites">
+            {{ __('Heart an image in History to keep it here.') }}
+        </Description>
+
+        <Description v-else-if="!all">
             {{ __('Images you save to assets are listed here, along with the prompt and settings that made them.') }}
         </Description>
 
@@ -94,7 +100,7 @@ function trashSelected() {
             </div>
 
             <Description v-if="!items.length && !loading">
-                {{ __('No saved images match that search.') }}
+                {{ favourites ? __('No favourites match that search.') : __('No saved images match that search.') }}
             </Description>
         </template>
 
@@ -110,6 +116,24 @@ function trashSelected() {
                         @update:model-value="(on) => toggle(item, on)"
                     />
                 </div>
+
+                <!-- Opposite the checkbox. Yours alone, so it is never
+                     disabled while something else is busy. -->
+                <button
+                    type="button"
+                    class="dr-history-heart"
+                    :class="{ 'is-on': item.favourite }"
+                    :aria-pressed="item.favourite ? 'true' : 'false'"
+                    :aria-label="__('Favourite :path', { path: item.path })"
+                    :title="item.favourite ? __('Remove from favourites') : __('Add to favourites')"
+                    @click="emit('favourite', item, !item.favourite)"
+                >
+                    <svg viewBox="0 0 14 14" aria-hidden="true">
+                        <path
+                            d="M.5 4.91C.544 2.015 3.86-.668 7 3.11c3.14-3.777 6.456-1.094 6.5 1.799 0 4.306-5.257 7.841-6.5 7.841S.5 9.215.5 4.91"
+                        />
+                    </svg>
+                </button>
 
                 <!-- A revised image opens its story, which links on to the asset
                      editor. Anything else opens core's asset editor over this
@@ -245,6 +269,57 @@ function trashSelected() {
     padding: 0.25rem;
     border-radius: 0.375rem;
     background: color-mix(in oklab, Canvas 85%, transparent);
+}
+
+.dr-history-heart {
+    position: absolute;
+    top: 0.5rem;
+    inset-inline-end: 0.5rem;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    color: color-mix(in oklab, CanvasText 70%, transparent);
+    background: color-mix(in oklab, Canvas 85%, transparent);
+    transition:
+        color 0.15s,
+        transform 0.15s;
+}
+
+.dr-history-heart:hover {
+    color: CanvasText;
+}
+
+.dr-history-heart:active {
+    transform: scale(0.9);
+}
+
+.dr-history-heart:focus-visible {
+    outline: 2px solid var(--theme-color-primary, currentColor);
+    outline-offset: 2px;
+}
+
+.dr-history-heart svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.25;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.dr-history-heart.is-on {
+    color: #e5484d;
+}
+
+.dr-history-heart.is-on svg {
+    fill: currentColor;
 }
 
 .dr-history-toolbar {

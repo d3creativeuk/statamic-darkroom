@@ -83,13 +83,15 @@ class SavedImages
     public const PER_PAGE_PREFERENCE = 'darkroom.history.per_page';
 
     /**
-     * "total" counts what matches the search; "all" counts every saved image,
-     * search or not, which is the number the tab shows. "meta" is shaped like
-     * a Laravel resource's, which is what core's Pagination component reads.
+     * "total" counts what matches the search; "all" counts every image in the
+     * listing, search or not, which is the number the tab shows. With
+     * $favourites only this user's favourites are listed; "favourites" counts
+     * them either way, for the Favourites tab. "meta" is shaped like a Laravel
+     * resource's, which is what core's Pagination component reads.
      *
-     * @return array{items: array<int, array<string, mixed>>, total: int, all: int, meta: array<string, int>}
+     * @return array{items: array<int, array<string, mixed>>, total: int, all: int, favourites: int, meta: array<string, int>}
      */
-    public function page($user, int $page = 1, ?string $search = null, ?int $perPage = null): array
+    public function page($user, int $page = 1, ?string $search = null, ?int $perPage = null, bool $favourites = false): array
     {
         $perPage = $this->perPage($perPage ?? Preference::get(self::PER_PAGE_PREFERENCE));
         $search = trim((string) $search);
@@ -103,7 +105,10 @@ class SavedImages
             ->reject(fn (AssetContract $asset) => Trash::isTrashed($asset))
             ->values();
 
-        $assets = $all
+        $liked = $all->filter(fn (AssetContract $asset) => Favourites::has($asset, $user))->values();
+        $listed = $favourites ? $liked : $all;
+
+        $assets = $listed
             ->when($search !== '', fn ($assets) => $assets->filter(fn (AssetContract $asset) => $this->matches($asset, $search)))
             ->sortByDesc(fn (AssetContract $asset) => (int) ($asset->get(self::KEY)['generated_at'] ?? 0))
             ->values();
@@ -114,12 +119,13 @@ class SavedImages
         // A page past the end, after deleting images or showing more per
         // page, lands on the last page rather than an empty one.
         $page = min(max(1, $page), $lastPage);
-        $items = $assets->forPage($page, $perPage)->map(fn ($asset) => $this->present($asset))->values()->all();
+        $items = $assets->forPage($page, $perPage)->map(fn ($asset) => $this->present($asset, $user))->values()->all();
 
         return [
             'items' => $items,
             'total' => $total,
-            'all' => $all->count(),
+            'all' => $listed->count(),
+            'favourites' => $liked->count(),
             'meta' => [
                 'current_page' => $page,
                 'last_page' => $lastPage,
@@ -169,7 +175,7 @@ class SavedImages
     /**
      * @return array<string, mixed>
      */
-    protected function present(AssetContract $asset): array
+    protected function present(AssetContract $asset, $user): array
     {
         $stamp = (array) $asset->get(self::KEY);
         $folder = trim((string) $asset->folder(), '/.');
@@ -201,6 +207,7 @@ class SavedImages
             'instructionTitle' => $stamp['instruction_title'] ?? null,
             'references' => self::references($stamp['references'] ?? null),
             'generatedAt' => $stamp['generated_at'] ?? null,
+            'favourite' => Favourites::has($asset, $user),
         ];
     }
 }

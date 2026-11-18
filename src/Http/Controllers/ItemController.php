@@ -136,8 +136,8 @@ class ItemController extends CpController
             return $this->refuse('missing_api_key', 'No Google API key is configured. Add GEMINI_API_KEY to your .env file.', 422);
         }
 
-        if ($store->inFlightFor((string) User::current()->id())) {
-            return $this->refuse('in_flight', 'Images are already being generated. Wait for them to finish.');
+        if ($full = $this->refuseWhenFull($store, (string) User::current()->id())) {
+            return $full;
         }
 
         $store->resetItem($id, $index);

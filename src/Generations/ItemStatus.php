@@ -24,7 +24,8 @@ enum ItemStatus: string
     }
 
     /**
-     * Waiting on Google. Only one batch per user may be in this state.
+     * Waiting on Google. A user may have batch.max_in_flight batches in this
+     * state at once.
      */
     public function isGenerating(): bool
     {

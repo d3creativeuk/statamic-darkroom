@@ -265,16 +265,49 @@ class BatchLifecycleTest extends TestCase
     }
 
     #[Test]
-    public function a_second_batch_is_refused_while_one_is_still_generating()
+    public function another_batch_can_be_generated_while_one_is_still_generating()
     {
-        Http::fake();
+        Http::fake(['*' => Http::response($this->interactionsResponse())]);
 
         // A batch whose job has not run: its image is still pending.
         $this->store()->create(['user' => 'super', 'prompt' => 'Waiting'], 1);
 
+        $this->generate();
+
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function a_new_batch_is_refused_once_the_most_allowed_are_generating()
+    {
+        Http::fake();
+
+        foreach (range(1, 3) as $n) {
+            $this->store()->create(['user' => 'super', 'prompt' => "Waiting {$n}"], 1);
+        }
+
         $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload())
             ->assertStatus(409)
-            ->assertJson(['code' => 'in_flight']);
+            ->assertExactJson([
+                'code' => 'in_flight',
+                'message' => 'You already have 3 generations running, the most at once. Wait for one to finish.',
+            ]);
+
+        Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function a_limit_of_one_allows_one_batch_at_a_time()
+    {
+        config()->set('statamic-darkroom.batch.max_in_flight', 1);
+
+        Http::fake();
+
+        $this->store()->create(['user' => 'super', 'prompt' => 'Waiting'], 1);
+
+        $this->postJson(cp_route('darkroom.batches.store'), $this->generatePayload())
+            ->assertStatus(409)
+            ->assertExactJson(['code' => 'in_flight', 'message' => 'Images are already being generated. Wait for them to finish.']);
 
         Http::assertNothingSent();
     }
@@ -308,7 +341,7 @@ class BatchLifecycleTest extends TestCase
         $this->assertTrue($item['error']['retryable']);
 
         // Settled for good, so it no longer blocks a new batch.
-        $this->assertFalse($this->store()->inFlightFor('super'));
+        $this->assertSame(0, $this->store()->inFlightFor('super'));
     }
 
     #[Test]

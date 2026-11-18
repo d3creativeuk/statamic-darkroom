@@ -90,8 +90,8 @@ class RevisionController extends CpController
             throw ValidationException::withMessages(['container' => 'You are not allowed to upload to the container this image belongs to.']);
         }
 
-        if ($store->inFlightFor((string) $user->id())) {
-            return $this->refuse('in_flight', 'Images are already being generated. Wait for them to finish.');
+        if ($full = $this->refuseWhenFull($store, (string) $user->id())) {
+            return $full;
         }
 
         $batch = $store->create(array_filter([

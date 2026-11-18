@@ -8,6 +8,7 @@ import {
     Description,
     Header,
     Heading,
+    Icon,
     Panel,
     PanelHeader,
     TabContent,
@@ -33,6 +34,7 @@ import Trash from '../../components/Trash.vue';
 import UpscaleDialog from '../../components/UpscaleDialog.vue';
 import { assetName, escapeHtml, qualityRank, usd, withInputImages } from '../../composables/format.js';
 import { useGeneration } from '../../composables/useGeneration.js';
+import { useSavedImages } from '../../composables/useSavedImages.js';
 import { useReferences } from '../../composables/useReferences.js';
 import { useRevisions } from '../../composables/useRevisions.js';
 import { http } from '../../composables/useHttp.js';
@@ -95,20 +97,41 @@ const instructionsPanel = ref(null);
 const composer = ref(null);
 
 const tab = ref('history');
-const saved = reactive({ ...props.history, search: '', loading: false });
 const months = ref(props.usage);
 const binned = ref(props.trash);
 
-// The Trash tab only exists while something is in it, so emptying it moves
-// back to History.
+// How many images this user has hearted, from whichever listing answered
+// last. The Favourites tab shows it, and only exists while it is not zero.
+const favouriteCount = ref(props.history.favourites ?? 0);
+const counted = (fresh) => (favouriteCount.value = fresh.favourites ?? favouriteCount.value);
+
+const history = useSavedImages({ url: props.urls.history, initial: props.history, onLoad: counted });
+const favourites = useSavedImages({
+    url: props.urls.history,
+    favourites: true,
+    initial: null,
+    onLoad: counted,
+});
+const saved = history.state;
+const liked = favourites.state;
+
+// The Trash and Favourites tabs only exist while something is in them, so
+// emptying one moves back to History.
 watch(
-    () => binned.value.length,
-    (count) => {
-        if (!count && tab.value === 'trash') {
+    () => [binned.value.length, favouriteCount.value],
+    ([trashed, hearted]) => {
+        if ((!trashed && tab.value === 'trash') || (!hearted && tab.value === 'favourites')) {
             tab.value = 'history';
         }
     },
 );
+
+// Favourites are fetched the first time their tab is opened.
+watch(tab, (name) => {
+    if (name === 'favourites' && !liked.loaded) {
+        favourites.refresh({ page: 1, perPage: saved.meta.per_page, report: true });
+    }
+});
 
 async function refreshTrash() {
     try {
@@ -118,69 +141,38 @@ async function refreshTrash() {
     }
 }
 
-function historyUrl(page, perPage) {
-    const query = new URLSearchParams({ page, per_page: perPage });
-
-    if (saved.search.trim()) {
-        query.set('search', saved.search.trim());
-    }
-
-    return `${props.urls.history}?${query}`;
+/**
+ * Bring History up to date, and Favourites too once it has been opened: an
+ * edit, a rename or a trip to the trash can change either.
+ */
+function refreshHistory() {
+    return Promise.all([history.refresh(), liked.loaded ? favourites.refresh() : null]);
 }
-
-// Each search, page change or save landing asks again. Only the latest
-// answer is kept, so a slow early reply cannot overwrite a newer one.
-let historyRequest = 0;
 
 /**
- * Load a page of History; by default the one on screen, so a save or an
- * edit refreshes it in place. The server moves back to the last page if
- * this one no longer exists.
+ * Heart an image, or take the heart away. The card changes straight away and
+ * changes back if the server refuses.
  */
-async function refreshHistory({ page = saved.meta.current_page, perPage = saved.meta.per_page, report = false } = {}) {
-    const request = ++historyRequest;
+async function favourite(item, on) {
+    const mark = (value) =>
+        [...saved.items, ...liked.items].filter((candidate) => candidate.id === item.id).forEach((candidate) => (candidate.favourite = value));
 
-    saved.loading = true;
+    mark(on);
+    favouriteCount.value = Math.max(0, favouriteCount.value + (on ? 1 : -1));
 
     try {
-        const fresh = await http('GET', historyUrl(page, perPage));
-
-        if (request === historyRequest) {
-            Object.assign(saved, fresh);
-        }
+        await http('POST', props.urls.favourite, { asset: item.id, favourite: on });
     } catch (e) {
-        // Unasked for, the list on screen is only stale, not wrong, and the
-        // next save or a reload brings it up to date. Asked for, say so.
-        if (report) {
-            Statamic.$toast.error(e.message);
-        }
-    } finally {
-        if (request === historyRequest) {
-            saved.loading = false;
-        }
+        mark(!on);
+        favouriteCount.value = Math.max(0, favouriteCount.value + (on ? -1 : 1));
+        Statamic.$toast.error(e.message);
+
+        return;
     }
-}
 
-let searchTimer = null;
-
-watch(
-    () => saved.search,
-    () => {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => refreshHistory({ page: 1 }), 300);
-    },
-);
-
-function historyPage(page) {
-    refreshHistory({ page, report: true });
-}
-
-// Kept as a user preference, as core's listings keep theirs, so the choice
-// follows the user to the next visit and to other devices.
-function historyPerPage(perPage) {
-    Statamic.$preferences.set('darkroom.history.per_page', perPage);
-
-    refreshHistory({ page: 1, perPage, report: true });
+    if (liked.loaded) {
+        favourites.refresh();
+    }
 }
 
 async function refreshUsage() {
@@ -191,7 +183,7 @@ async function refreshUsage() {
     }
 }
 
-const { batches, generating, put, generate, upscale, revise, save, retry, discard, discardBatch } = useGeneration({
+const { batches, running, put, generate, upscale, revise, save, retry, discard, discardBatch } = useGeneration({
     initial: props.batches,
     url: props.urls.batches,
     upscaleUrl: props.urls.upscales,
@@ -304,17 +296,29 @@ const costNote = computed(() => {
 });
 
 const ready = computed(() => props.configured && props.containers.length > 0);
+
+// A few batches can generate at once (batch.max_in_flight), so the next
+// prompt can go while one is still running. The server keeps the same count
+// and refuses one more; mirroring it here lets the button say so first.
+const full = computed(() => running.value >= props.limits.maxInFlight);
+
 const canGenerate = computed(
-    () => ready.value && form.prompt.trim() !== '' && !generating.value && !submitting.value && !references.pending.value,
+    () => ready.value && form.prompt.trim() !== '' && !full.value && !submitting.value && !references.pending.value,
 );
 
 const generateLabel = computed(() => {
-    if (generating.value) {
+    if (full.value) {
         return __('Generating…');
     }
 
     return form.batchSize > 1 ? __('Generate :n images', { n: form.batchSize }) : __('Generate');
 });
+
+const fullNote = computed(() =>
+    full.value && props.limits.maxInFlight > 1
+        ? __(':count generations are running, the most at once. Generate again when one finishes.', { count: running.value })
+        : null,
+);
 
 async function submit() {
     if (!canGenerate.value) {
@@ -435,7 +439,7 @@ function assetClosed() {
 const removal = reactive({ open: false, mode: 'trash', ids: [], used: [] });
 
 function nameOf(id) {
-    const item = [...saved.items, ...binned.value].find((candidate) => candidate.id === id);
+    const item = [...saved.items, ...liked.items, ...binned.value].find((candidate) => candidate.id === id);
 
     return item?.basename ?? item?.path?.split('/').pop() ?? id;
 }
@@ -1011,7 +1015,8 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                     />
 
                     <div class="dr-generate">
-                        <Description v-if="costNote">{{ costNote }}</Description>
+                        <Description v-if="fullNote">{{ fullNote }}</Description>
+                        <Description v-else-if="costNote">{{ costNote }}</Description>
                         <Button variant="primary" :loading="submitting" :disabled="!canGenerate" @click="submit">
                             {{ generateLabel }}
                         </Button>
@@ -1039,8 +1044,8 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :file-types="fileTypes"
             :busy="acting"
             :retention-hours="retentionHours"
-            :can-upscale="ready && !generating && !submitting && canUpscale(batch.quality)"
-            :can-revise="ready && !generating && !submitting"
+            :can-upscale="ready && !full && !submitting && canUpscale(batch.quality)"
+            :can-revise="ready && !full && !submitting"
             @upscale="(item) => askToUpscale({ quality: batch.quality, model: batch.model, aspectRatio: batch.aspectRatio }, { batch: batch.id, index: item.index })"
             @revise="(item) => reviseImage(batch, item)"
             @thread="reviseImage(batch)"
@@ -1055,6 +1060,13 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
         <Tabs v-model="tab" class="dr-archive">
             <TabList>
                 <TabTrigger name="history" :text="saved.all ? __('History (:n)', { n: saved.all }) : __('History')" />
+                <TabTrigger v-if="favouriteCount" name="favourites" :title="__('Favourites')">
+                    <span class="dr-tab-favourites">
+                        <span class="dr-visually-hidden">{{ __('Favourites') }}</span>
+                        <Icon name="heart" class="dr-tab-heart" />
+                        {{ favouriteCount }}
+                    </span>
+                </TabTrigger>
                 <TabTrigger name="spend" :text="__('Spend')" />
                 <TabTrigger v-if="binned.length" name="trash" :text="__('Trash (:n)', { n: binned.length })" />
             </TabList>
@@ -1067,15 +1079,40 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
                         :all="saved.all"
                         :meta="saved.meta"
                         :loading="saved.loading"
-                        :disabled="!ready || generating || submitting || acting"
+                        :disabled="!ready || full || submitting || acting"
                         :can-upscale="canUpscale"
                         @reuse="reuse"
                         @open="openAsset"
                         @story="openStory"
                         @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
                         @revise="reviseSaved"
-                        @page="historyPage"
-                        @per-page="historyPerPage"
+                        @favourite="favourite"
+                        @page="history.page"
+                        @per-page="history.perPage"
+                        @trash="trashImages"
+                    />
+                </Card>
+            </TabContent>
+
+            <TabContent v-if="favouriteCount" name="favourites">
+                <Card class="dr-archive-card">
+                    <History
+                        v-model:search="liked.search"
+                        favourites
+                        :items="liked.items"
+                        :all="liked.loaded ? liked.all : favouriteCount"
+                        :meta="liked.meta"
+                        :loading="liked.loading || !liked.loaded"
+                        :disabled="!ready || full || submitting || acting"
+                        :can-upscale="canUpscale"
+                        @reuse="reuse"
+                        @open="openAsset"
+                        @story="openStory"
+                        @upscale="(item) => askToUpscale({ quality: item.quality, model: item.model, aspectRatio: item.aspectRatio }, { asset: item.id })"
+                        @revise="reviseSaved"
+                        @favourite="favourite"
+                        @page="favourites.page"
+                        @per-page="favourites.perPage"
                         @trash="trashImages"
                     />
                 </Card>
@@ -1128,7 +1165,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :item="story.item"
             :story="story.data"
             :loading="story.loading"
-            :busy="!ready || generating || submitting || acting"
+            :busy="!ready || full || submitting || acting"
             @edit="storyEdit"
             @revise="storyRevise"
             @forget="forgetStory"
@@ -1142,7 +1179,7 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
             :prompt="revisions.state.prompt"
             :rounds="revisions.rounds.value"
             :loading="revisions.state.loading"
-            :busy="generating || submitting || acting || revisions.busy.value"
+            :busy="full || submitting || acting || revisions.busy.value"
             :preferred="defaults.model"
             @send="sendRound"
             @choose="revisions.choose"
@@ -1203,6 +1240,28 @@ const suggestedPromptName = computed(() => form.prompt.trim().split(/\s+/).slice
 .dr-dropping {
     outline: 2px dashed var(--theme-color-primary, currentColor);
     outline-offset: 4px;
+}
+
+/* Core's tab trigger takes any content; this one is a heart and a count. */
+.dr-tab-favourites {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.dr-tab-heart {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.dr-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 .dr-generate {

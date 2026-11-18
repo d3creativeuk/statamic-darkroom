@@ -54,6 +54,8 @@ The **Spend** tab shows each user only the images they generated. To let someone
 
 The estimated cost is shown next to the Generate button before you spend anything.
 
+You don't have to wait for one generation to finish before starting the next. Change the prompt or settings and press Generate again, and the new images appear above the ones still on their way. Up to three generations can run at once per person, counting upscales and revision rounds; at that point the button waits until one finishes. Sites can change the number with `batch.max_in_flight`.
+
 Generated images are held in temporary storage and shown as previews. For each one you can set the filename, alt text and file type, then **Save to folder…** or **Discard**. Filenames are made URL-safe as you type or paste: lowercase, with spaces and punctuation turned into hyphens. Nothing reaches your asset library until you save it. Each unsaved image has already been paid for, so it stays until you save or discard it, however long that takes; reload the page or come back next week and it is still there. A note under its buttons says so. A site can set `temp.retention_hours` to delete unsaved images after a while instead, and the note then says when each one will go.
 
 ### Reference images
@@ -128,6 +130,12 @@ Once an image is saved it moves to the **History** tab: every image Darkroom has
 
 The history is not a separate log. The prompt and settings are stored on the asset itself, under a `darkroom` key in its metadata. So the history follows your assets wherever they are synced, editing an asset later keeps it, and deleting an asset removes it from the list. You only see images from containers you are allowed to view.
 
+### Favourites
+
+Click the heart on any image in History to add it to your favourites. A heart tab appears beside History while you have any, listing just those images, with the same search, paging and buttons. Click the heart again to take an image out.
+
+Favourites are your own: everyone has their own, and hearting an image changes nothing anyone else sees, so being able to view the image is enough. They are stored on the asset with its other Darkroom data, so they follow it through a rename or move. An image in Trash leaves your favourites and comes back to them if it is restored.
+
 ### Trash
 
 Tick images in History, using the checkbox on each card or **Select all on this page**, then **Move to Trash**. A **Trash** tab appears while it has anything in it, listing what was removed, when, and when it will be deleted.
@@ -198,6 +206,7 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 | `default_model` | `gemini-3-pro-image` | The model selected on first visit. Also `DARKROOM_MODEL` |
 | `models` | four models | Each model's label, description, qualities with prices, the price of an image sent with the prompt, aspect ratios and how it takes a system instruction. Add or retire a model here |
 | `batch.max` | `4` | Largest batch allowed |
+| `batch.max_in_flight` | `3` | How many generations one person can have running at once. Each keeps a PHP worker busy until Google answers (see [How generation runs](#how-generation-runs)). `1` allows one at a time. Also `DARKROOM_MAX_IN_FLIGHT` |
 | `defaults` | 16:9, 2K, JPEG | What the form starts with, including a default container and folder |
 | `file_types` | JPEG, WebP, PNG | The file types offered when saving |
 | `encode.quality` | `90` | Compression used when converting to WebP |
@@ -220,6 +229,8 @@ php artisan vendor:publish --tag=statamic-darkroom-config
 ## How generation runs
 
 An image takes anywhere from five seconds to a minute, which is too long for a normal page request. Darkroom answers the request immediately, generates after the response has been sent, and the page checks back every couple of seconds. This needs no queue worker.
+
+The PHP worker that answered stays busy until Google replies, so each generation running holds one worker for up to a minute (a batch of four is still one worker, since its images are sent together). With `batch.max_in_flight` at 3, one person can tie up three. Laravel Herd runs five PHP-FPM workers per PHP version, and many servers run few more, so raise the limit only if yours runs enough workers for everyone generating at once plus the Control Panel itself.
 
 If Google is overloaded or rate limited, each image is tried up to three times. A rejected request, a bad key or a blocked prompt is not retried, and the reason is shown on the image's card.
 

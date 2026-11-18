@@ -154,11 +154,18 @@ return [
     | A batch of N is N separate requests sent at the same time. "concurrency"
     | caps how many are in flight at once.
     |
+    | "max_in_flight" is how many batches one person can have generating at
+    | once, so a new prompt can be sent while another is still running. Each
+    | one keeps a PHP worker busy until Google answers (up to a minute), and
+    | Herd runs five per PHP version, so raise it only if your server runs
+    | more. Set it to 1 to allow one batch at a time.
+    |
     */
 
     'batch' => [
         'max' => 4,
         'concurrency' => 4,
+        'max_in_flight' => (int) env('DARKROOM_MAX_IN_FLIGHT', 3),
     ],
 
     /*

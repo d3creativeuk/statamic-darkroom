@@ -75,10 +75,10 @@ class BatchController extends CpController
 
         [$references, $images] = $this->references($data['references'] ?? [], (string) $user->id(), $referenceStore, $config);
 
-        // One batch at a time per person. It keeps a double click, or a second
-        // tab, from quietly doubling the bill.
-        if ($store->inFlightFor((string) $user->id())) {
-            return $this->refuse('in_flight', 'Images are already being generated. Wait for them to finish.');
+        // A few batches at a time per person (batch.max_in_flight), so the
+        // next prompt can go while one is still generating.
+        if ($full = $this->refuseWhenFull($store, (string) $user->id())) {
+            return $full;
         }
 
         $batch = $store->create([

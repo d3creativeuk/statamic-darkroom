@@ -19,10 +19,10 @@ export function useGeneration({ initial, url, upscaleUrl, reviseUrl, interval, o
 
     const inProgress = (batch) => batch.items.some((item) => IN_PROGRESS.includes(item.status));
 
-    // The server allows one batch at a time per person. Mirroring that here
-    // lets the button say so before a request is refused.
-    const generating = computed(() =>
-        batches.value.some((batch) => batch.items.some((item) => WAITING_ON_GOOGLE.includes(item.status))),
+    // How many batches are waiting on Google. The server allows a few per
+    // person at once, and counts them the same way.
+    const running = computed(
+        () => batches.value.filter((batch) => batch.items.some((item) => WAITING_ON_GOOGLE.includes(item.status))).length,
     );
 
     function put(batch) {
@@ -132,5 +132,5 @@ export function useGeneration({ initial, url, upscaleUrl, reviseUrl, interval, o
     onMounted(schedule);
     onBeforeUnmount(() => clearInterval(timer));
 
-    return { batches, generating, put, generate, upscale, revise, save, retry, discard, discardBatch };
+    return { batches, running, put, generate, upscale, revise, save, retry, discard, discardBatch };
 }

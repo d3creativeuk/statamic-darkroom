@@ -384,7 +384,9 @@ class UpscaleTest extends TestCase
     {
         $draft = $this->draft();
 
-        app(BatchStore::class)->create(['user' => 'super', 'prompt' => 'Still going'], 1);
+        foreach (range(1, 3) as $n) {
+            app(BatchStore::class)->create(['user' => 'super', 'prompt' => "Still going {$n}"], 1);
+        }
 
         Http::fake();
 

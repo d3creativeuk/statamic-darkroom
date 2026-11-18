@@ -33,6 +33,7 @@ class PageTest extends TestCase
             ->where('defaults.container', 'assets')
             ->where('defaults.instruction', null)
             ->where('limits.batchMax', 4)
+            ->where('limits.maxInFlight', 3)
             ->has('models', 4)
             ->where('models.0.label', 'Nano Banana Pro')
             ->where('models.0.aspectRatios', ['auto', '1:1', '3:4', '4:3', '2:3', '3:2', '9:16', '16:9', '5:4', '4:5', '21:9'])
@@ -58,6 +59,7 @@ class PageTest extends TestCase
                 'items' => [],
                 'total' => 0,
                 'all' => 0,
+                'favourites' => 0,
                 'meta' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 50, 'from' => 0, 'to' => 0, 'total' => 0],
             ])
             ->where('usage', [])
@@ -243,7 +245,7 @@ class PageTest extends TestCase
             }
         }
 
-        $this->assertCount(32, $buckets);
+        $this->assertCount(33, $buckets);
         $this->assertSame(array_values($buckets), array_values(array_unique($buckets)), 'Two routes share a throttle bucket.');
     }
 

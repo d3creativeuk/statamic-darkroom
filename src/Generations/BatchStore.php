@@ -320,19 +320,36 @@ class BatchStore
     }
 
     /**
-     * Whether the user already has images waiting on Google.
+     * How many of the user's batches have images waiting on Google.
      */
-    public function inFlightFor(string $userId): bool
+    public function inFlightFor(string $userId): int
     {
+        $count = 0;
+
         foreach ($this->ids() as $id) {
             $batch = $this->find($id);
 
             if ($batch && ($batch['user'] ?? null) === $userId && $this->has($batch, fn (ItemStatus $s) => $s->isGenerating())) {
-                return true;
+                $count++;
             }
         }
 
-        return false;
+        return $count;
+    }
+
+    /**
+     * How many batches one person may have waiting on Google at once. Each
+     * keeps a PHP worker busy until Google answers, so this also leaves the
+     * server room to answer everything else.
+     */
+    public function maxInFlight(): int
+    {
+        return max(1, (int) ($this->config['batch']['max_in_flight'] ?? 3));
+    }
+
+    public function hasRoomFor(string $userId): bool
+    {
+        return $this->inFlightFor($userId) < $this->maxInFlight();
     }
 
     /**
